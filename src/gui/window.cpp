@@ -233,7 +233,6 @@ Gtk::Window& MixerWindow::new_dialog(const std::string& title)
     dialog.set_title(title);
     dialog.set_transient_for(*this);
     dialog.set_modal(true);
-    dialog.set_resizable(false);
     dialog.signal_close_request().connect(
         [this] {
             close_dialog();
