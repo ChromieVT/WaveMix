@@ -1,0 +1,233 @@
+{
+  "note": "Reference behaviour for the tests. See tests/golden/README.md before changing it.",
+  "cases": [
+    {
+      "case": "missing",
+      "config.json": null,
+      "state.json": null,
+      "load_config": {
+        "version": 2,
+        "channels": [],
+        "assignments": [],
+        "settings": {
+          "personal_output": "default",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        }
+      },
+      "load_state": {
+        "levels": {},
+        "last_hardware_default": null
+      },
+      "files_after": []
+    },
+    {
+      "case": "not_json",
+      "config.json": "{ this is not json",
+      "state.json": null,
+      "load_config": {
+        "version": 2,
+        "channels": [],
+        "assignments": [],
+        "settings": {
+          "personal_output": "default",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        }
+      },
+      "load_state": {
+        "levels": {},
+        "last_hardware_default": null
+      },
+      "files_after": [
+        "config.json"
+      ]
+    },
+    {
+      "case": "not_an_object",
+      "config.json": "[1, 2, 3]",
+      "state.json": null,
+      "load_config": {
+        "version": 2,
+        "channels": [],
+        "assignments": [],
+        "settings": {
+          "personal_output": "default",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        }
+      },
+      "load_state": {
+        "levels": {},
+        "last_hardware_default": null
+      },
+      "files_after": [
+        "config.json"
+      ]
+    },
+    {
+      "case": "partial_settings",
+      "config.json": "{\"version\": 2, \"settings\": {\"personal_output\": \"alsa_output.usb-Headset-00.analog-stereo\"}}",
+      "state.json": null,
+      "load_config": {
+        "version": 2,
+        "channels": [],
+        "assignments": [],
+        "settings": {
+          "personal_output": "alsa_output.usb-Headset-00.analog-stereo",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        }
+      },
+      "load_state": {
+        "levels": {},
+        "last_hardware_default": null
+      },
+      "files_after": [
+        "config.json"
+      ]
+    },
+    {
+      "case": "invalid_channel_ids",
+      "config.json": "{\"version\": 2, \"channels\": [{\"id\": \"game\", \"label\": \"Game\", \"icon\": \"x\"}, {\"id\": \"Bad ID\", \"label\": \"Bad\", \"icon\": \"x\"}, {\"label\": \"No id\", \"icon\": \"x\"}]}",
+      "state.json": null,
+      "load_config": {
+        "version": 2,
+        "channels": [
+          {
+            "id": "game",
+            "label": "Game",
+            "icon": "x"
+          }
+        ],
+        "assignments": [],
+        "settings": {
+          "personal_output": "default",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        }
+      },
+      "load_state": {
+        "levels": {},
+        "last_hardware_default": null
+      },
+      "files_after": [
+        "config.json"
+      ]
+    },
+    {
+      "case": "unknown_keys_kept",
+      "config.json": "{\"version\": 2, \"future_key\": [1]}",
+      "state.json": null,
+      "load_config": {
+        "version": 2,
+        "channels": [],
+        "assignments": [],
+        "settings": {
+          "personal_output": "default",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        },
+        "future_key": [
+          1
+        ]
+      },
+      "load_state": {
+        "levels": {},
+        "last_hardware_default": null
+      },
+      "files_after": [
+        "config.json"
+      ]
+    },
+    {
+      "case": "state_levels_not_object",
+      "config.json": null,
+      "state.json": "{\"levels\": [], \"last_hardware_default\": \"alsa_output.pci-0000_00_1f.3.analog-stereo\"}",
+      "load_config": {
+        "version": 2,
+        "channels": [],
+        "assignments": [],
+        "settings": {
+          "personal_output": "default",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        }
+      },
+      "load_state": {
+        "levels": {},
+        "last_hardware_default": "alsa_output.pci-0000_00_1f.3.analog-stereo"
+      },
+      "files_after": [
+        "state.json"
+      ]
+    },
+    {
+      "case": "state_partial",
+      "config.json": null,
+      "state.json": "{\"levels\": {\"game:personal\": {\"volume\": 0.5, \"muted\": false}}}",
+      "load_config": {
+        "version": 2,
+        "channels": [],
+        "assignments": [],
+        "settings": {
+          "personal_output": "default",
+          "compact_popup": true,
+          "autostart": true,
+          "start_minimized": true,
+          "vod_enabled": false,
+          "pulse_routing": false,
+          "theme": "dark",
+          "custom_theme": ""
+        }
+      },
+      "load_state": {
+        "levels": {
+          "game:personal": {
+            "volume": 0.5,
+            "muted": false
+          }
+        },
+        "last_hardware_default": null
+      },
+      "files_after": [
+        "state.json"
+      ]
+    }
+  ]
+}

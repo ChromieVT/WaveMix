@@ -1,0 +1,351 @@
+{
+  "note": "Reference behaviour for the tests. See tests/golden/README.md before changing it.",
+  "description": "Daemon startup: recreates a missing loopback, routes Spotify back to Music, writes the login file.",
+  "input": {
+    "config.json": {
+      "version": 2,
+      "channels": [
+        {
+          "id": "game",
+          "label": "Game",
+          "icon": "input-gaming-symbolic"
+        },
+        {
+          "id": "music",
+          "label": "Music",
+          "icon": "audio-x-generic-symbolic"
+        }
+      ],
+      "assignments": [
+        {
+          "app": "binary:spotify",
+          "label": "Spotify",
+          "channel": "music"
+        },
+        {
+          "app": "binary:steam_game",
+          "label": "Some Game",
+          "channel": "game"
+        },
+        {
+          "app": "name:VLC media player",
+          "label": "VLC media player",
+          "channel": "music"
+        }
+      ],
+      "settings": {
+        "personal_output": "default",
+        "compact_popup": true,
+        "autostart": true,
+        "start_minimized": true,
+        "vod_enabled": false
+      }
+    },
+    "state.json": {
+      "levels": {
+        "game:personal": {
+          "volume": 0.8,
+          "muted": false
+        },
+        "game:stream": {
+          "volume": 0.5,
+          "muted": false
+        },
+        "music:personal": {
+          "volume": 0.35,
+          "muted": false
+        },
+        "music:stream": {
+          "volume": 0.2,
+          "muted": true
+        }
+      },
+      "last_hardware_default": "alsa_output.pci-0000_00_1f.3.analog-stereo"
+    }
+  },
+  "steps": [
+    {
+      "step": "reconcile",
+      "result": null,
+      "server_calls": [
+        {
+          "call": "service_link",
+          "tag": "music:stream"
+        },
+        {
+          "call": "volume_set",
+          "stream": 502,
+          "link": "music:stream",
+          "volume": 0.2
+        },
+        {
+          "call": "mute",
+          "stream": 502,
+          "link": "music:stream",
+          "muted": true
+        }
+      ]
+    },
+    {
+      "step": "apply_assignment",
+      "result": null,
+      "server_calls": [
+        {
+          "call": "sink_input_move",
+          "stream": 1001,
+          "to": "wavemix_music"
+        }
+      ]
+    },
+    {
+      "step": "write_pipewire_config",
+      "result": null,
+      "server_calls": []
+    }
+  ],
+  "get_state": {
+    "connected": true,
+    "channels": [
+      {
+        "id": "game",
+        "label": "Game",
+        "icon": "input-gaming-symbolic",
+        "personal": {
+          "present": true,
+          "volume": 0.8,
+          "muted": false
+        },
+        "stream": {
+          "present": true,
+          "volume": 0.5,
+          "muted": false
+        },
+        "in_vod": true,
+        "apps": [
+          {
+            "index": 1002,
+            "name": "Some Game",
+            "media": "audio stream",
+            "icon": "application-x-executable",
+            "key": "binary:steam_game",
+            "channel": "game",
+            "assigned": "game",
+            "sink": "wavemix_game",
+            "sink_description": "Game (WaveMix)"
+          }
+        ]
+      },
+      {
+        "id": "music",
+        "label": "Music",
+        "icon": "audio-x-generic-symbolic",
+        "personal": {
+          "present": true,
+          "volume": 0.35,
+          "muted": false
+        },
+        "stream": {
+          "present": true,
+          "volume": 0.2,
+          "muted": true
+        },
+        "in_vod": true,
+        "apps": [
+          {
+            "index": 1001,
+            "name": "Spotify",
+            "media": "Song title",
+            "icon": "spotify-client",
+            "key": "binary:spotify",
+            "channel": "music",
+            "assigned": "music",
+            "sink": "wavemix_music",
+            "sink_description": "Music (WaveMix)"
+          }
+        ]
+      }
+    ],
+    "unrouted_apps": [
+      {
+        "index": 1003,
+        "name": "Discord",
+        "media": "playStream",
+        "icon": "discord",
+        "key": "binary:Discord",
+        "channel": null,
+        "assigned": null,
+        "sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "sink_description": "Built-in Audio Analog Stereo"
+      },
+      {
+        "index": 1004,
+        "name": "Firefox",
+        "media": "YouTube",
+        "icon": "application-x-executable",
+        "key": "name:Firefox",
+        "channel": null,
+        "assigned": null,
+        "sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "sink_description": "Built-in Audio Analog Stereo"
+      },
+      {
+        "index": 1005,
+        "name": "Notification sound",
+        "media": "Notification sound",
+        "icon": "application-x-executable",
+        "key": null,
+        "channel": null,
+        "assigned": null,
+        "sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "sink_description": "Built-in Audio Analog Stereo"
+      }
+    ],
+    "stream_mix": {
+      "present": true,
+      "volume": 1.0,
+      "muted": false
+    },
+    "vod_mix": {
+      "present": false,
+      "volume": 0.0,
+      "muted": false
+    },
+    "outputs": [
+      {
+        "name": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "description": "Built-in Audio Analog Stereo",
+        "is_default": true
+      },
+      {
+        "name": "alsa_output.usb-Headset-00.analog-stereo",
+        "description": "USB Headset Analog Stereo",
+        "is_default": false
+      }
+    ],
+    "personal_output": {
+      "setting": "default",
+      "resolved": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+      "description": "Built-in Audio Analog Stereo",
+      "level": {
+        "present": true,
+        "volume": 1.0,
+        "muted": false
+      }
+    },
+    "personal_mix": {
+      "present": true,
+      "volume": 1.0,
+      "muted": false
+    },
+    "settings": {
+      "personal_output": "default",
+      "compact_popup": true,
+      "autostart": true,
+      "start_minimized": true,
+      "vod_enabled": false
+    },
+    "assignments": [
+      {
+        "app": "binary:spotify",
+        "label": "Spotify",
+        "channel": "music"
+      },
+      {
+        "app": "binary:steam_game",
+        "label": "Some Game",
+        "channel": "game"
+      },
+      {
+        "app": "name:VLC media player",
+        "label": "VLC media player",
+        "channel": "music"
+      }
+    ],
+    "presets": [
+      {
+        "label": "System",
+        "icon": "computer-symbolic"
+      },
+      {
+        "label": "Voice",
+        "icon": "audio-headset-symbolic"
+      },
+      {
+        "label": "Game",
+        "icon": "input-gaming-symbolic"
+      },
+      {
+        "label": "Music",
+        "icon": "audio-x-generic-symbolic"
+      },
+      {
+        "label": "Browser",
+        "icon": "web-browser-symbolic"
+      }
+    ],
+    "version": "0.1.0"
+  },
+  "output": {
+    "config.json": {
+      "version": 2,
+      "channels": [
+        {
+          "id": "game",
+          "label": "Game",
+          "icon": "input-gaming-symbolic"
+        },
+        {
+          "id": "music",
+          "label": "Music",
+          "icon": "audio-x-generic-symbolic"
+        }
+      ],
+      "assignments": [
+        {
+          "app": "binary:spotify",
+          "label": "Spotify",
+          "channel": "music"
+        },
+        {
+          "app": "binary:steam_game",
+          "label": "Some Game",
+          "channel": "game"
+        },
+        {
+          "app": "name:VLC media player",
+          "label": "VLC media player",
+          "channel": "music"
+        }
+      ],
+      "settings": {
+        "personal_output": "default",
+        "compact_popup": true,
+        "autostart": true,
+        "start_minimized": true,
+        "vod_enabled": false
+      }
+    },
+    "state.json": {
+      "levels": {
+        "game:personal": {
+          "volume": 0.8,
+          "muted": false
+        },
+        "game:stream": {
+          "volume": 0.5,
+          "muted": false
+        },
+        "music:personal": {
+          "volume": 0.35,
+          "muted": false
+        },
+        "music:stream": {
+          "volume": 0.2,
+          "muted": true
+        }
+      },
+      "last_hardware_default": "alsa_output.pci-0000_00_1f.3.analog-stereo"
+    },
+    "60-wavemix.conf": "# Generated by WaveMix - do not edit, changes will be overwritten.\n# Add or remove channels in the WaveMix window instead.\npulse.cmd = [\n    { cmd = \"load-module\" args = \"module-null-sink sink_name=wavemix_personal_mix sink_properties=\\\"device.description='WaveMix Personal Mix' wavemix.channel=''\\\"\" flags = [ \"nofail\" ] }\n    { cmd = \"load-module\" args = \"module-null-sink sink_name=wavemix_stream_mix sink_properties=\\\"device.description='WaveMix Stream Mix' wavemix.channel=''\\\"\" flags = [ \"nofail\" ] }\n    { cmd = \"load-module\" args = \"module-null-sink sink_name=wavemix_game sink_properties=\\\"device.description='Game (WaveMix)' wavemix.channel=game\\\"\" flags = [ \"nofail\" ] }\n    { cmd = \"load-module\" args = \"module-null-sink sink_name=wavemix_music sink_properties=\\\"device.description='Music (WaveMix)' wavemix.channel=music\\\"\" flags = [ \"nofail\" ] }\n    { cmd = \"load-module\" args = \"module-null-sink sink_name=wavemix_mic_feed channels=1 sink_properties=\\\"device.description='WaveMix Mic feed' wavemix.channel='' wavemix.mic=device\\\"\" flags = [ \"nofail\" ] }\n    { cmd = \"load-module\" args = \"module-remap-source source_name=wavemix_mic master=wavemix_mic_feed.monitor channels=1 source_properties=\\\"device.description='WaveMix Mic' wavemix.mic=device\\\"\" flags = [ \"nofail\" ] }\n]\n"
+  }
+}

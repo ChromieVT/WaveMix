@@ -1,0 +1,221 @@
+{
+  "note": "Reference behaviour for the tests. See tests/golden/README.md before changing it.",
+  "make_id": [
+    {
+      "label": "Game",
+      "existing": [],
+      "id": "game"
+    },
+    {
+      "label": "Voice Chat",
+      "existing": [],
+      "id": "voice_chat"
+    },
+    {
+      "label": "  Music  ",
+      "existing": [],
+      "id": "music"
+    },
+    {
+      "label": "Spotify & Friends!",
+      "existing": [],
+      "id": "spotify_friends"
+    },
+    {
+      "label": "ÄÖÜ",
+      "existing": [],
+      "id": "channel"
+    },
+    {
+      "label": "",
+      "existing": [],
+      "id": "channel"
+    },
+    {
+      "label": "---",
+      "existing": [],
+      "id": "channel"
+    },
+    {
+      "label": "123 go",
+      "existing": [],
+      "id": "123_go"
+    },
+    {
+      "label": "_x",
+      "existing": [],
+      "id": "x"
+    },
+    {
+      "label": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "existing": [],
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "label": "Browser",
+      "existing": [],
+      "id": "browser"
+    },
+    {
+      "label": "Game",
+      "existing": [
+        "game",
+        "game_2"
+      ],
+      "id": "game_3"
+    }
+  ],
+  "valid_id": [
+    {
+      "id": "game",
+      "valid": true
+    },
+    {
+      "id": "game_2",
+      "valid": true
+    },
+    {
+      "id": "a",
+      "valid": true
+    },
+    {
+      "id": "0abc",
+      "valid": true
+    },
+    {
+      "id": "_abc",
+      "valid": false
+    },
+    {
+      "id": "Game",
+      "valid": false
+    },
+    {
+      "id": "has-dash",
+      "valid": false
+    },
+    {
+      "id": "has space",
+      "valid": false
+    },
+    {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true
+    },
+    {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false
+    },
+    {
+      "id": "",
+      "valid": false
+    }
+  ],
+  "names": {
+    "game": {
+      "base_sink": "wavemix_game",
+      "links": {
+        "personal": {
+          "tag": "game:personal",
+          "node_name": "wavemix_game_personal_link",
+          "media_name": "WaveMix game:personal",
+          "destination": "(personal output)"
+        },
+        "stream": {
+          "tag": "game:stream",
+          "node_name": "wavemix_game_stream_link",
+          "media_name": "WaveMix game:stream",
+          "destination": "wavemix_stream_mix"
+        },
+        "vod": {
+          "tag": "game:vod",
+          "node_name": "wavemix_game_vod_link",
+          "media_name": "WaveMix game:vod",
+          "destination": "wavemix_vod_mix"
+        }
+      }
+    },
+    "voice_chat": {
+      "base_sink": "wavemix_voice_chat",
+      "links": {
+        "personal": {
+          "tag": "voice_chat:personal",
+          "node_name": "wavemix_voice_chat_personal_link",
+          "media_name": "WaveMix voice_chat:personal",
+          "destination": "(personal output)"
+        },
+        "stream": {
+          "tag": "voice_chat:stream",
+          "node_name": "wavemix_voice_chat_stream_link",
+          "media_name": "WaveMix voice_chat:stream",
+          "destination": "wavemix_stream_mix"
+        },
+        "vod": {
+          "tag": "voice_chat:vod",
+          "node_name": "wavemix_voice_chat_vod_link",
+          "media_name": "WaveMix voice_chat:vod",
+          "destination": "wavemix_vod_mix"
+        }
+      }
+    }
+  },
+  "constants": {
+    "PREFIX": "wavemix_",
+    "MIX_SINK": "wavemix_stream_mix",
+    "MIX_LABEL": "WaveMix Stream Mix",
+    "VOD_SINK": "wavemix_vod_mix",
+    "VOD_LABEL": "WaveMix VOD Mix",
+    "MAX_CHANNELS": 10,
+    "DEFAULT_ICON": "audio-volume-high-symbolic",
+    "PRESETS": [
+      {
+        "label": "System",
+        "icon": "computer-symbolic"
+      },
+      {
+        "label": "Voice",
+        "icon": "audio-headset-symbolic"
+      },
+      {
+        "label": "Game",
+        "icon": "input-gaming-symbolic"
+      },
+      {
+        "label": "Music",
+        "icon": "audio-x-generic-symbolic"
+      },
+      {
+        "label": "Browser",
+        "icon": "web-browser-symbolic"
+      }
+    ],
+    "APP_ID": "io.github.ChromieVT.WaveMix",
+    "BUS_NAME": "io.github.ChromieVT.WaveMix.Daemon",
+    "OBJECT_PATH": "/io/github/ChromieVT/WaveMix/Daemon",
+    "INTERFACE": "io.github.ChromieVT.WaveMix.Daemon1"
+  },
+  "pa_props": [
+    {
+      "props": {
+        "device.description": "Game (WaveMix)",
+        "wavemix.channel": "game"
+      },
+      "formatted": "device.description='Game (WaveMix)' wavemix.channel=game"
+    },
+    {
+      "props": {
+        "a": "",
+        "b": "it's \"quoted\""
+      },
+      "formatted": "a='' b='its quoted'"
+    }
+  ],
+  "sink_args": "sink_name=wavemix_game sink_properties=\"device.description='Game (WaveMix)' wavemix.channel=game\"",
+  "link_module_args": {
+    "personal": "{ node.description = \"WaveMix game:personal\" audio.position = [ FL FR ] capture.props = { node.name = \"wavemix_game_personal_link_in\" target.object = \"wavemix_game\" node.passive = true node.dont-fallback = true stream.capture.sink = true } playback.props = { node.name = \"wavemix_game_personal_link\" media.name = \"WaveMix game:personal\" wavemix.link = \"game:personal\" target.object = \"wavemix_personal_mix\" node.dont-fallback = true } }",
+    "stream": "{ node.description = \"WaveMix game:stream\" audio.position = [ FL FR ] capture.props = { node.name = \"wavemix_game_stream_link_in\" target.object = \"wavemix_game\" node.passive = true node.dont-fallback = true stream.capture.sink = true } playback.props = { node.name = \"wavemix_game_stream_link\" media.name = \"WaveMix game:stream\" wavemix.link = \"game:stream\" target.object = \"wavemix_stream_mix\" node.dont-fallback = true } }",
+    "vod": "{ node.description = \"WaveMix game:vod\" audio.position = [ FL FR ] capture.props = { node.name = \"wavemix_game_vod_link_in\" target.object = \"wavemix_game\" node.passive = true node.dont-fallback = true stream.capture.sink = true } playback.props = { node.name = \"wavemix_game_vod_link\" media.name = \"WaveMix game:vod\" wavemix.link = \"game:vod\" target.object = \"wavemix_vod_mix\" node.dont-fallback = true } }",
+    "personal_out": "{ node.description = \"WaveMix Personal Mix\" audio.position = [ FL FR ] capture.props = { node.name = \"wavemix_personal_mix_out_in\" target.object = \"wavemix_personal_mix\" node.passive = true node.dont-fallback = true stream.capture.sink = true } playback.props = { node.name = \"wavemix_personal_mix_out\" media.name = \"WaveMix Personal Mix\" wavemix.link = \"personal:out\" target.object = \"alsa_output.pci-0000_00_1f.3.analog-stereo\" node.dont-fallback = true } }",
+    "mic_monitor": "{ node.description = \"WaveMix mic:monitor\" audio.position = [ MONO ] capture.props = { node.name = \"wavemix_mic_monitor_link_in\" target.object = \"wavemix_mic\" node.passive = true node.dont-fallback = true } playback.props = { node.name = \"wavemix_mic_monitor_link\" media.name = \"WaveMix mic:monitor\" wavemix.link = \"mic:monitor\" target.object = \"wavemix_personal_mix\" node.dont-fallback = true } }"
+  }
+}

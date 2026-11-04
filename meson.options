@@ -1,0 +1,4 @@
+option('tests', type : 'feature', value : 'auto',
+  description : 'Build the unit tests (needs GoogleTest)')
+option('autostart', type : 'boolean', value : true,
+  description : 'Install a login autostart entry for the background service (off for Flatpak, which uses the Background portal)')

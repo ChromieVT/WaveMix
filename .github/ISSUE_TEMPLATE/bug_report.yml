@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The form GitHub shows for "New issue → Bug report".
+name: Bug report
+description: Something in WaveMix doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! WaveMix can't be tested on every distribution and desktop,
+        so the bug report file is the most useful thing you can give us. Make one with
+        **☰ → Save bug report…** in WaveMix, or in a terminal:
+
+        ```
+        wavemix --bug-report > wavemix-report.txt        
+        ```
+
+        It has your WaveMix settings, the names of your audio outputs and of the apps
+        playing through WaveMix, and WaveMix's log. Have a look before attaching it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+      placeholder: I moved Spotify to Music, and it kept playing through System.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen?
+      description: The steps, if you know them. "It happens after logging in" helps too.
+  - type: textarea
+    id: report
+    attributes:
+      label: Bug report
+      description: Drag the bug report file here, or paste it.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: WaveMix version
+      description: Beside the title in WaveMix's window, or `wavemix --version`.
+      placeholder: "0.0.7a"

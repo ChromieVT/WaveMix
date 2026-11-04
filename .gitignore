@@ -1,0 +1,11 @@
+build/
+builddir/
+.flatpak-builder/
+.flatpak-build/
+.flatpak-repo/
+dist/
+packaging/
+
+# Bug reports made while testing: personal, never committed.
+wavemix-report*.txt
+wavemix-bug-report-*.txt

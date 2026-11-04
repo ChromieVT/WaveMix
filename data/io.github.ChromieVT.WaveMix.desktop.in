@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=WaveMix
+GenericName=Audio Mixer
+Comment=Separate personal and stream volumes for your apps
+Exec=@BINDIR@/wavemix
+Icon=io.github.ChromieVT.WaveMix
+Categories=AudioVideo;Audio;Mixer;
+Keywords=audio;mixer;stream;obs;pipewire;wave link;
+StartupNotify=true
+SingleMainWindow=true

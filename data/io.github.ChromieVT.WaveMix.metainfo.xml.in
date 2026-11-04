@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (C) 2026 ChromieVT -->
+<component type="desktop-application">
+  <id>io.github.ChromieVT.WaveMix</id>
+  <name>WaveMix</name>
+  <summary>Separate personal and stream volumes for your apps</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="io.github.chromievt">
+    <name>ChromieVT</name>
+  </developer>
+  <description>
+    <p>
+      WaveMix is an audio mixer for streamers. Route apps into channels, and give each
+      channel two volumes: Personal, for what you hear, and Stream, for what your stream
+      or recording hears.
+    </p>
+    <p>
+      Every channel's stream side comes together in one "WaveMix Stream Mix" device for
+      OBS to capture. Apps you don't route keep playing through your normal output, and
+      WaveMix remembers where each app goes.
+    </p>
+    <p>
+      Your channels are part of PipeWire itself, so they keep working at login, and even
+      while WaveMix isn't running.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.ChromieVT.WaveMix.desktop</launchable>
+  <url type="homepage">https://github.com/ChromieVT/WaveMix-Dev</url>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Mixer</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <releases>
+    <release version="@VERSION@" date="2026-10-27">
+      <description>
+        <p>Alpha: WaveMix's audio runs in its service, and the devices OBS records are always there. A Personal Mix with its own master, so muting it leaves other apps playing. The mic chain is one node with no filter limit, its plugins come with the Flatpak, and the filters window has level meters.</p>
+      </description>
+    </release>
+  </releases>
+</component>

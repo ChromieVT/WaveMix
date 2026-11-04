@@ -1,0 +1,642 @@
+{
+  "note": "Reference behaviour for the tests. See tests/golden/README.md before changing it.",
+  "description": "Two channels, apps routed and unrouted, internal streams hidden.",
+  "input": {
+    "config.json": {
+      "version": 2,
+      "channels": [
+        {
+          "id": "game",
+          "label": "Game",
+          "icon": "input-gaming-symbolic"
+        },
+        {
+          "id": "music",
+          "label": "Music",
+          "icon": "audio-x-generic-symbolic"
+        }
+      ],
+      "assignments": [
+        {
+          "app": "binary:spotify",
+          "label": "Spotify",
+          "channel": "music"
+        },
+        {
+          "app": "binary:steam_game",
+          "label": "Some Game",
+          "channel": "game"
+        },
+        {
+          "app": "name:VLC media player",
+          "label": "VLC media player",
+          "channel": "music"
+        }
+      ],
+      "settings": {
+        "personal_output": "default",
+        "compact_popup": true,
+        "autostart": true,
+        "start_minimized": true,
+        "vod_enabled": false
+      }
+    },
+    "state.json": {
+      "levels": {
+        "game:personal": {
+          "volume": 0.8,
+          "muted": false
+        },
+        "game:stream": {
+          "volume": 0.5,
+          "muted": false
+        },
+        "music:personal": {
+          "volume": 0.35,
+          "muted": false
+        },
+        "music:stream": {
+          "volume": 0.2,
+          "muted": true
+        }
+      },
+      "last_hardware_default": "alsa_output.pci-0000_00_1f.3.analog-stereo"
+    }
+  },
+  "steps": [],
+  "get_state": {
+    "connected": true,
+    "channels": [
+      {
+        "id": "game",
+        "label": "Game",
+        "icon": "input-gaming-symbolic",
+        "personal": {
+          "present": true,
+          "volume": 0.8,
+          "muted": false
+        },
+        "stream": {
+          "present": true,
+          "volume": 0.5,
+          "muted": false
+        },
+        "in_vod": true,
+        "apps": [
+          {
+            "index": 1002,
+            "name": "Some Game",
+            "media": "audio stream",
+            "icon": "application-x-executable",
+            "key": "binary:steam_game",
+            "channel": "game",
+            "assigned": "game",
+            "sink": "wavemix_game",
+            "sink_description": "Game (WaveMix)"
+          }
+        ]
+      },
+      {
+        "id": "music",
+        "label": "Music",
+        "icon": "audio-x-generic-symbolic",
+        "personal": {
+          "present": true,
+          "volume": 0.35,
+          "muted": false
+        },
+        "stream": {
+          "present": true,
+          "volume": 0.2,
+          "muted": true
+        },
+        "in_vod": true,
+        "apps": [
+          {
+            "index": 1001,
+            "name": "Spotify",
+            "media": "Song title",
+            "icon": "spotify-client",
+            "key": "binary:spotify",
+            "channel": "music",
+            "assigned": "music",
+            "sink": "wavemix_music",
+            "sink_description": "Music (WaveMix)"
+          }
+        ]
+      }
+    ],
+    "unrouted_apps": [
+      {
+        "index": 1003,
+        "name": "Discord",
+        "media": "playStream",
+        "icon": "discord",
+        "key": "binary:Discord",
+        "channel": null,
+        "assigned": null,
+        "sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "sink_description": "Built-in Audio Analog Stereo"
+      },
+      {
+        "index": 1004,
+        "name": "Firefox",
+        "media": "YouTube",
+        "icon": "application-x-executable",
+        "key": "name:Firefox",
+        "channel": null,
+        "assigned": null,
+        "sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "sink_description": "Built-in Audio Analog Stereo"
+      },
+      {
+        "index": 1005,
+        "name": "Notification sound",
+        "media": "Notification sound",
+        "icon": "application-x-executable",
+        "key": null,
+        "channel": null,
+        "assigned": null,
+        "sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "sink_description": "Built-in Audio Analog Stereo"
+      }
+    ],
+    "stream_mix": {
+      "present": true,
+      "volume": 1.0,
+      "muted": false
+    },
+    "vod_mix": {
+      "present": false,
+      "volume": 0.0,
+      "muted": false
+    },
+    "outputs": [
+      {
+        "name": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "description": "Built-in Audio Analog Stereo",
+        "is_default": true
+      },
+      {
+        "name": "alsa_output.usb-Headset-00.analog-stereo",
+        "description": "USB Headset Analog Stereo",
+        "is_default": false
+      }
+    ],
+    "personal_output": {
+      "setting": "default",
+      "resolved": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+      "description": "Built-in Audio Analog Stereo",
+      "level": {
+        "present": true,
+        "volume": 1.0,
+        "muted": false
+      }
+    },
+    "personal_mix": {
+      "present": true,
+      "volume": 1.0,
+      "muted": false
+    },
+    "mic": {
+      "enabled": true,
+      "input": {
+        "setting": "default",
+        "resolved": "alsa_input.usb-mic",
+        "description": "USB Microphone"
+      },
+      "inputs": [
+        {
+          "name": "alsa_input.usb-mic",
+          "description": "USB Microphone",
+          "is_default": true
+        }
+      ],
+      "level": {
+        "present": true,
+        "volume": 1.0,
+        "muted": false
+      },
+      "monitor": {
+        "present": true,
+        "volume": 1.0,
+        "muted": true
+      },
+      "chain": [
+        {
+          "filter": "gate",
+          "on": true,
+          "settings": {
+            "threshold": -30,
+            "reduction": -40
+          },
+          "running": true,
+          "why_not": null
+        },
+        {
+          "filter": "compressor",
+          "on": false,
+          "settings": {
+            "threshold": -15,
+            "ratio": 3
+          },
+          "running": false,
+          "why_not": "off"
+        }
+      ],
+      "max_filters": 16,
+      "filters": [
+        {
+          "filter": "noise",
+          "found": false,
+          "package": "noise-suppression-for-voice",
+          "controls": [
+            {
+              "key": "threshold",
+              "unit": "%",
+              "min": 0,
+              "max": 99,
+              "default": 50
+            }
+          ]
+        },
+        {
+          "filter": "gain",
+          "found": true,
+          "package": "ladspa",
+          "controls": [
+            {
+              "key": "gain",
+              "unit": "dB",
+              "min": -20,
+              "max": 20,
+              "default": 0
+            }
+          ]
+        },
+        {
+          "filter": "gate",
+          "found": true,
+          "package": "lsp-plugins-ladspa",
+          "controls": [
+            {
+              "key": "threshold",
+              "unit": "dB",
+              "min": -60,
+              "max": 0,
+              "default": -24
+            },
+            {
+              "key": "reduction",
+              "unit": "dB",
+              "min": -60,
+              "max": 0,
+              "default": -40
+            }
+          ]
+        },
+        {
+          "filter": "expander",
+          "found": true,
+          "package": "lsp-plugins-ladspa",
+          "controls": [
+            {
+              "key": "threshold",
+              "unit": "dB",
+              "min": -60,
+              "max": 0,
+              "default": -15
+            },
+            {
+              "key": "ratio",
+              "unit": "",
+              "min": 1,
+              "max": 20,
+              "default": 3
+            }
+          ]
+        },
+        {
+          "filter": "equalizer",
+          "found": true,
+          "package": "lsp-plugins-ladspa",
+          "controls": [
+            {
+              "key": "band_1_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 60
+            },
+            {
+              "key": "band_1_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_1_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            },
+            {
+              "key": "band_2_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 150
+            },
+            {
+              "key": "band_2_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_2_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            },
+            {
+              "key": "band_3_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 400
+            },
+            {
+              "key": "band_3_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_3_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            },
+            {
+              "key": "band_4_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 1000
+            },
+            {
+              "key": "band_4_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_4_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            },
+            {
+              "key": "band_5_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 2500
+            },
+            {
+              "key": "band_5_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_5_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            },
+            {
+              "key": "band_6_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 5000
+            },
+            {
+              "key": "band_6_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_6_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            },
+            {
+              "key": "band_7_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 10000
+            },
+            {
+              "key": "band_7_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_7_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            },
+            {
+              "key": "band_8_frequency",
+              "unit": "Hz",
+              "min": 20,
+              "max": 20000,
+              "default": 15000
+            },
+            {
+              "key": "band_8_gain",
+              "unit": "dB",
+              "min": -24,
+              "max": 24,
+              "default": 0
+            },
+            {
+              "key": "band_8_q",
+              "unit": "",
+              "min": 0.1,
+              "max": 10,
+              "default": 1
+            }
+          ]
+        },
+        {
+          "filter": "compressor",
+          "found": true,
+          "package": "lsp-plugins-ladspa",
+          "controls": [
+            {
+              "key": "threshold",
+              "unit": "dB",
+              "min": -60,
+              "max": 0,
+              "default": -15
+            },
+            {
+              "key": "ratio",
+              "unit": "",
+              "min": 1,
+              "max": 20,
+              "default": 3
+            }
+          ]
+        },
+        {
+          "filter": "limiter",
+          "found": true,
+          "package": "lsp-plugins-ladspa",
+          "controls": [
+            {
+              "key": "ceiling",
+              "unit": "dB",
+              "min": -24,
+              "max": 0,
+              "default": -1
+            }
+          ]
+        }
+      ]
+    },
+    "settings": {
+      "personal_output": "default",
+      "compact_popup": true,
+      "autostart": true,
+      "start_minimized": true,
+      "vod_enabled": false
+    },
+    "assignments": [
+      {
+        "app": "binary:spotify",
+        "label": "Spotify",
+        "channel": "music"
+      },
+      {
+        "app": "binary:steam_game",
+        "label": "Some Game",
+        "channel": "game"
+      },
+      {
+        "app": "name:VLC media player",
+        "label": "VLC media player",
+        "channel": "music"
+      }
+    ],
+    "presets": [
+      {
+        "label": "System",
+        "icon": "computer-symbolic"
+      },
+      {
+        "label": "Voice",
+        "icon": "audio-headset-symbolic"
+      },
+      {
+        "label": "Game",
+        "icon": "input-gaming-symbolic"
+      },
+      {
+        "label": "Music",
+        "icon": "audio-x-generic-symbolic"
+      },
+      {
+        "label": "Browser",
+        "icon": "web-browser-symbolic"
+      }
+    ],
+    "version": "0.1.0"
+  },
+  "output": {
+    "config.json": {
+      "version": 2,
+      "channels": [
+        {
+          "id": "game",
+          "label": "Game",
+          "icon": "input-gaming-symbolic"
+        },
+        {
+          "id": "music",
+          "label": "Music",
+          "icon": "audio-x-generic-symbolic"
+        }
+      ],
+      "assignments": [
+        {
+          "app": "binary:spotify",
+          "label": "Spotify",
+          "channel": "music"
+        },
+        {
+          "app": "binary:steam_game",
+          "label": "Some Game",
+          "channel": "game"
+        },
+        {
+          "app": "name:VLC media player",
+          "label": "VLC media player",
+          "channel": "music"
+        }
+      ],
+      "settings": {
+        "personal_output": "default",
+        "compact_popup": true,
+        "autostart": true,
+        "start_minimized": true,
+        "vod_enabled": false
+      }
+    },
+    "state.json": {
+      "levels": {
+        "game:personal": {
+          "volume": 0.8,
+          "muted": false
+        },
+        "game:stream": {
+          "volume": 0.5,
+          "muted": false
+        },
+        "music:personal": {
+          "volume": 0.35,
+          "muted": false
+        },
+        "music:stream": {
+          "volume": 0.2,
+          "muted": true
+        }
+      },
+      "last_hardware_default": "alsa_output.pci-0000_00_1f.3.analog-stereo"
+    },
+    "60-wavemix.conf": null
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "note": "Reference behaviour for the tests. See tests/golden/README.md before changing it.",
+  "description": "GetState while PipeWire isn't reachable.",
+  "get_state": {
+    "connected": false,
+    "channels": [],
+    "unrouted_apps": [],
+    "outputs": [],
+    "settings": {
+      "personal_output": "default",
+      "compact_popup": true,
+      "autostart": true,
+      "start_minimized": true,
+      "vod_enabled": false
+    },
+    "presets": [
+      {
+        "label": "System",
+        "icon": "computer-symbolic"
+      },
+      {
+        "label": "Voice",
+        "icon": "audio-headset-symbolic"
+      },
+      {
+        "label": "Game",
+        "icon": "input-gaming-symbolic"
+      },
+      {
+        "label": "Music",
+        "icon": "audio-x-generic-symbolic"
+      },
+      {
+        "label": "Browser",
+        "icon": "web-browser-symbolic"
+      }
+    ],
+    "assignments": [],
+    "version": "0.1.0"
+  }
+}
