@@ -79,6 +79,9 @@ private:
     void open_link(const std::string& url);
     // Adds the theme rows (built-in theme, custom CSS file) to a form.
     void add_theme_rows(Gtk::Grid& grid, int& row);
+    // Adds a fallback device picker (output or mic) to a form, for the `key` setting.
+    void add_fallback_row(Gtk::Grid& grid, int& row, const std::string& title, const std::string& key,
+                          const core::json& devices);
     // Resets WaveMix to the defaults, asking first.
     void reset_wavemix();
     // Restarts the background service.

@@ -21,7 +21,9 @@ json default_config()
         {"assignments", json::array()},  // [{"app": key, "label": display name, "channel": id}]
         {"settings",
          {
-             {"personal_output", "default"},  // "default" or a sink name
+             {"personal_output", "default"},   // "default" or a sink name
+             {"fallback_output", ""},          // a sink name, or "" for none
+             {"fallback_input", ""},           // a source name, or "" for none
              {"compact_popup", true},          // tray icon opens compact sliders
              {"autostart", true},              // the service starts at login
              {"start_minimized", true},        // at login, only the tray icon (no window)

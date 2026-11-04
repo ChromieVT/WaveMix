@@ -390,18 +390,20 @@ void Mixer::apply_mic_controls(const pw::Graph& g)
         mic_controls_set_ = {node->serial(), std::move(values)};
 }
 
-// The input the mic chain should read: the picked device, the default, or the first one.
+// The input the mic chain should read: the picked device, fallback device, the default, or the first one.
 std::optional<std::string> Mixer::resolve_mic_input(const pw::Graph& g) const
 {
-    // Like the personal output: a device the user picked (that one, or nothing), or the
-    // system's default input if it's a real device, or else the first one there is.
     const std::string setting = core::mic_input_setting(config_);
     const auto inputs = g.hardware_sources();
     const auto present = [&](const std::string& name) {
         return std::any_of(inputs.begin(), inputs.end(), [&](const pw::Node* n) { return n->name() == name; });
     };
-    if (setting != "default")
-        return present(setting) ? std::optional(setting) : std::nullopt;
+    if (setting != "default") {
+        if (present(setting))
+            return setting;
+        const std::string fallback = string_field(config_["settings"], "fallback_input");
+        return present(fallback) ? std::optional(fallback) : std::nullopt;
+    }
     if (present(g.default_source))
         return g.default_source;
     if (!inputs.empty())
@@ -425,11 +427,16 @@ std::optional<std::string> Mixer::resolve_personal_output(const pw::Graph& g)
         return std::find(hardware.begin(), hardware.end(), name) != hardware.end();
     };
 
-    // 1. A device the user picked: that one, or nothing. Never fall back to another
-    //    device: playing the personal mix through the wrong speakers is worse.
+    // 1. A device the user picked, when it's there; or else the fallback output they
+    // picked, if it's there. Neither: the system default, as below.
     const std::string setting = string_field(config_["settings"], "personal_output");
-    if (!setting.empty() && setting != "default")
-        return is_hardware(setting) ? std::optional(setting) : std::nullopt;
+    if (!setting.empty() && setting != "default") {
+        if (is_hardware(setting))
+            return setting;
+        const std::string fallback = string_field(config_["settings"], "fallback_output");
+        if (is_hardware(fallback))
+            return fallback;
+    }
 
     // 2. Following the default, and the default is a real device.
     if (is_hardware(g.default_sink)) {
@@ -909,7 +916,7 @@ void Mixer::set_setting(std::string_view key, const json& value)
         throw failed("unknown setting '" + std::string(key) + "'");
     settings[std::string(key)] = value;
     save_config();
-    if (key == "personal_output") {
+    if (key == "personal_output" || key == "fallback_output" || key == "fallback_input") {
         reconcile();
         write_login_conf();
     }

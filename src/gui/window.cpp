@@ -644,9 +644,56 @@ void MixerWindow::open_preferences()
     pulse_note->set_max_width_chars(52);
     grid.attach(*pulse_note, 0, row++, 2);
 
+    // Fallbacks: used while the device picked in the window isn't there (unplugged, say).
+    // Without one there, the output follows the system default; the mic waits for one.
+    add_fallback_row(grid, row, "Fallback output", "fallback_output", state_.value("outputs", json::array()));
+    if (state_.contains("mic"))
+        add_fallback_row(grid, row, "Fallback mic", "fallback_input",
+                         state_["mic"].value("inputs", json::array()));
+    auto* fallback_note = make_label(
+        "Used while the device you picked in the window isn't connected (not when it follows the system "
+        "default). Without the fallback either, the output follows the system default, and the mic waits until "
+        "one of them is back.",
+        {"wm-caption"}, 0.0F, true);
+    fallback_note->set_max_width_chars(52);
+    grid.attach(*fallback_note, 0, row++, 2);
+
     add_theme_rows(grid, row);
 
     dialog_->present();
+}
+
+// Adds a fallback device row to a form: a picker of "No fallback" and the devices there
+// now, which stores the choice in the `key` setting.
+void MixerWindow::add_fallback_row(Gtk::Grid& grid, int& row, const std::string& title, const std::string& key,
+                                   const json& devices)
+{
+    // No fallback, then the devices there now. A fallback that isn't connected stays listed, so
+    // opening Preferences never changes it.
+    const std::string current = str(state_.value("settings", json::object()).value(key, json("")));
+    std::vector<std::string> names{""};
+    std::vector<Glib::ustring> labels{"No fallback"};
+    for (const auto& device : devices) {
+        names.push_back(str(device.value("name", json(""))));
+        labels.emplace_back(str(device.value("description", json(names.back()))));
+    }
+    if (std::find(names.begin(), names.end(), current) == names.end()) {
+        names.push_back(current);
+        labels.emplace_back(current + " (not connected)");
+    }
+    auto* label = make_label(title, {}, 0.0F);
+    label->set_margin_top(8);
+    auto* picker = Gtk::make_managed<Gtk::DropDown>(Gtk::StringList::create(labels));
+    picker->set_selected(static_cast<guint>(std::find(names.begin(), names.end(), current) - names.begin()));
+    picker->set_margin_top(8);
+    picker->set_hexpand(true);
+    picker->property_selected().signal_changed().connect([this, picker, names, key] {
+        const auto i = picker->get_selected();
+        if (i < names.size())
+            call([&] { client_.set_setting(key, names[i]); });
+    });
+    grid.attach(*label, 0, row);
+    grid.attach(*picker, 1, row++);
 }
 
 // Adds the Theme picker and the Custom CSS file chooser rows to a form.

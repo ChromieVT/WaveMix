@@ -11,6 +11,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "default",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,
@@ -36,6 +38,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "default",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,
@@ -63,6 +67,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "default",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,
@@ -90,6 +96,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "alsa_output.usb-Headset-00.analog-stereo",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,
@@ -123,6 +131,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "default",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,
@@ -150,6 +160,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "default",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,
@@ -180,6 +192,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "default",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,
@@ -207,6 +221,8 @@
         "assignments": [],
         "settings": {
           "personal_output": "default",
+          "fallback_output": "",
+          "fallback_input": "",
           "compact_popup": true,
           "autostart": true,
           "start_minimized": true,

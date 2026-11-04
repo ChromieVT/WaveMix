@@ -1,6 +1,6 @@
 {
   "note": "Reference behaviour for the tests. See tests/golden/README.md before changing it.",
-  "description": "personal_output names a device that isn't there.",
+  "description": "personal_output names a device that isn't there, and there's no fallback output: the Personal mix follows the system default.",
   "input": {
     "config.json": {
       "version": 2,
@@ -185,11 +185,11 @@
     ],
     "personal_output": {
       "setting": "alsa_output.unplugged-device",
-      "resolved": null,
-      "description": null,
+      "resolved": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+      "description": "Built-in Audio Analog Stereo",
       "level": {
-        "present": false,
-        "volume": 0.0,
+        "present": true,
+        "volume": 1.0,
         "muted": false
       }
     },
