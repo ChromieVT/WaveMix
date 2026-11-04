@@ -1,0 +1,25 @@
+/* A sample WaveMix theme.
+
+   Change any colour below; delete the lines you don't change, and they keep the
+   built-in theme's. WaveMix reloads this file every time it's saved.
+
+   Any other CSS works too, for example:
+     .wm-column { border-radius: 4px; }
+     .wm-title { font-size: 1.3em; }
+   (GTK's CSS: https://docs.gtk.org/gtk4/css-properties.html) */
+
+:root {
+  --wm-bg: #181818;  /* the window's background */
+  --wm-surface: #2d2d2d; /* the channel columns, the output rows and the title bar */
+  --wm-surface-alt: #181818;  /* buttons, menus and popups */
+  --wm-border: #2d2d2d;  /* borders, and the scrollbars */
+  --wm-text: #ffffff;  /* text, and the slider knobs */
+  --wm-text-dim: #8b929e;  /* captions and hints */
+  --wm-personal: #646464;  /* everything about what you hear */
+  --wm-stream: #646464;  /* everything about what the stream hears */
+  --wm-danger: #ff5c6c;  /* muted, off, and warnings */
+  --wm-on: #3ccf6e;  /* switched on (the VOD buttons, the filters' power buttons), and quiet meters */
+  --wm-warning: #f2b33d;  /* meters nearing the top */
+  --wm-on-accent: #ffffff;  /* text on the blue buttons */
+  --wm-hover: #ffffff;  /* what buttons and rows are mixed with under the pointer */
+}
