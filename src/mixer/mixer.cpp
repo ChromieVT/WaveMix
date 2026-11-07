@@ -352,7 +352,8 @@ void Mixer::sync_pulse_links()
         return;
     const pw::Graph g = graph();
     const auto output = resolve_personal_output(g);
-    session_->plumbing->sync_loopbacks(core::wanted_pulse_links(core::running_config(config_), output)))
+    for (const auto& line :
+         session_->plumbing->sync_loopbacks(core::wanted_pulse_links(core::running_config(config_), output)))
         log(line);
     session_->pulse_links_cleared = !on;
     if (on)
