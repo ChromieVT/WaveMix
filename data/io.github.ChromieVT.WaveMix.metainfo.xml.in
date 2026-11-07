@@ -26,7 +26,7 @@
     </p>
   </description>
   <launchable type="desktop-id">io.github.ChromieVT.WaveMix.desktop</launchable>
-  <url type="homepage">https://github.com/ChromieVT/WaveMix-Dev</url>
+  <url type="homepage">https://github.com/ChromieVT/wavemix</url>
   <categories>
     <category>AudioVideo</category>
     <category>Audio</category>

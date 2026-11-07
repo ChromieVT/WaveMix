@@ -59,6 +59,12 @@ public:
     void drop_channel(const std::string& id, int position);
     // Asks where to save a bug report, then writes it.
     void save_bug_report();
+    // The first-run setup: devices, channels and the profile's name, or a profile from
+    // another PC instead. Opens by itself on a first run; Preferences has it too.
+    void open_setup();
+    // The setup's import: the profile becomes the one in use, replacing the first run's
+    // Default. False if it couldn't be used (the error is shown).
+    bool setup_from_profile(const std::string& text);
 
 private:
     // Asks for the state again shortly (once, for a burst of changes).
@@ -82,6 +88,8 @@ private:
     void export_profile();
     // Imports a profile from a file the user picks, without switching to it.
     void import_profile();
+    // Reads the chosen profile file
+    void choose_profile_file(std::function<void(const std::string&)> use);
     // A dialog with one text field: `on_ok` gets the text, trimmed, if it isn't empty.
     void ask_text(const std::string& title, const std::string& initial, const std::string& note,
                   const std::string& ok, std::function<void(const std::string&)> on_ok);
@@ -145,6 +153,8 @@ private:
     Gtk::MenuButton* profiles_button_ = nullptr;
     Gtk::Label* profile_label_ = nullptr;  // the profile in use, on the profiles menu button
     Gtk::Popover* profiles_popover_ = nullptr;
+    bool setup_offered_ = false;  // the first-run setup opened by itself this time
+    std::function<void()> on_dialog_closed_;  // run once when the open dialog closes
     Gtk::Box body_{Gtk::Orientation::VERTICAL};
     sigc::connection refresh_pending_;
     std::pair<std::string, std::string> theme_shown_;  // the theme and custom file in use

@@ -4,6 +4,7 @@
 #include "gui/window.hpp"
 
 #include <set>
+#include <utility>
 
 #include "build_config.hpp"
 #include "core/log.hpp"
@@ -261,6 +262,8 @@ void MixerWindow::close_dialog()
 {
     if (!dialog_)
         return;
+    if (auto closed = std::exchange(on_dialog_closed_, {}))
+        closed();
     dialog_->hide();
     // Delete it later: this usually runs inside one of the dialog's own signal handlers.
     // The idle callback owns it until then, so a dialog opened meanwhile is left alone.
@@ -453,6 +456,17 @@ void MixerWindow::refresh()
     if (state_.contains("profiles"))
         profile_label_->set_text(str(state_["profiles"].value("active", json(""))));
     profiles_button_->set_visible(state_.contains("profiles"));  // not from a service before profiles
+
+    // A first run: the setup, once, unless another dialog is open. Someone with channels
+    // already (from before the setup existed) doesn't need it.
+    const json& setup_settings = state_.value("settings", json::object());
+    if (!setup_offered_ && !dialog_ && state_.value("connected", false) && state_.contains("profiles") &&
+        setup_settings.contains("setup_done") && !setup_settings.value("setup_done", true) &&
+        state_.value("channels", json::array()).empty())
+        Glib::signal_idle().connect_once([this] {
+            if (!dialog_)
+                open_setup();
+        });
 
     // The theme (Preferences), when it changes: a built-in one, or Custom, the user's
     // stylesheet on top of Dark.
@@ -709,8 +723,21 @@ void MixerWindow::export_profile()
     });
 }
 
-// Asks for a profile file, has the daemon import it and says what it was named.
+// Asks for a profile file and has the daemon store it, without switching to it, then
+// says what it was named.
 void MixerWindow::import_profile()
+{
+    choose_profile_file([this](const std::string& text) {
+        std::string name;
+        call([&] { name = client_.import_profile(text); });
+        if (!name.empty())
+            show_message("Imported “" + name + "”. Pick it in the profiles menu to use it.", 6);
+    });
+}
+
+// Opens a file chooser for *.json files, reads the one picked and passes its text to
+// `use`. Cancelling does nothing; a file that can't be read shows an error.
+void MixerWindow::choose_profile_file(std::function<void(const std::string&)> use)
 {
     auto dialog = Gtk::FileDialog::create();
     dialog->set_title("Import profile");
@@ -720,7 +747,7 @@ void MixerWindow::import_profile()
     auto filters = Gio::ListStore<Gtk::FileFilter>::create();
     filters->append(filter);
     dialog->set_filters(filters);
-    dialog->open(*this, [this, dialog](const Glib::RefPtr<Gio::AsyncResult>& result) {
+    dialog->open(*this, [this, dialog, use = std::move(use)](const Glib::RefPtr<Gio::AsyncResult>& result) {
         Glib::RefPtr<Gio::File> file;
         try {
             file = dialog->open_finish(result);
@@ -739,11 +766,204 @@ void MixerWindow::import_profile()
             show_error("Could not read the profile: " + std::string(e.what()));
             return;
         }
-        std::string name;
-        call([&] { name = client_.import_profile(text); });
-        if (!name.empty())
-            show_message("Imported “" + name + "”. Pick it in the profiles menu to use it.", 6);
+        use(text);
     });
+}
+
+// =====================================================================================
+// The first-run setup
+// =====================================================================================
+
+// Imports the profile, switches to it, deletes the profile it replaces and marks the
+// setup done; shows the error and returns false if any step fails.
+bool MixerWindow::setup_from_profile(const std::string& text)
+{
+    // An imported profile instead of the setup: it becomes the one in use, in place of
+    // the empty Default a first run starts with, whatever it's called.
+    const std::string previous = str(state_.value("profiles", json::object()).value("active", json("")));
+    std::string name;
+    try {
+        name = client_.import_profile(text);
+        client_.switch_profile(name);
+        if (!previous.empty() && previous != name)
+            client_.delete_profile(previous);
+        client_.set_setting("setup_done", true);
+    } catch (const client::ClientError& e) {
+        show_error(e.what());
+        queue_refresh();
+        return false;
+    }
+    show_message("Using the profile “" + name + "”.", 5);
+    queue_refresh();
+    return true;
+}
+
+// Builds the setup dialog as four pages (welcome, devices, channels, done). Finish
+// applies the devices, adds the ticked channels and renames the profile; however the
+// dialog closes, the setup counts as done.
+void MixerWindow::open_setup()
+{
+    setup_offered_ = true;
+    Gtk::Window& dialog = new_dialog("Set up WaveMix");
+    dialog.set_default_size(520, -1);
+    auto* stack = Gtk::make_managed<Gtk::Stack>();
+    stack->set_transition_type(Gtk::StackTransitionType::SLIDE_LEFT_RIGHT);
+    stack->set_margin(20);
+
+    const auto page = [&](const std::string& name, const std::string& title, const std::string& text) {
+        auto* box = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 12);
+        box->append(*make_label(title, {"wm-setup-title"}, 0.0F));
+        auto* intro = make_label(text, {"dim"}, 0.0F, true);
+        intro->set_max_width_chars(56);
+        box->append(*intro);
+        stack->add(*box, name);
+        return box;
+    };
+    const auto buttons = [&](Gtk::Box& box) {
+        auto* row = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
+        row->add_css_class("wm-dialog-buttons");
+        row->set_halign(Gtk::Align::END);
+        row->set_valign(Gtk::Align::END);
+        row->set_vexpand(true);
+        row->set_margin_top(12);
+        box.append(*row);
+        return row;
+    };
+    // Closing it any way counts as done (see the end): it isn't offered again, though
+    // Preferences has it.
+    const auto finish = [this] { close_dialog(); };
+
+    // 1. Welcome: step by step, a profile from another PC, or skip.
+    auto* welcome = page("welcome", "Welcome to WaveMix",
+                         "WaveMix gives each group of apps its own channel, with a Personal volume (what you hear) and "
+                         "a Stream volume (what your stream hears). A few steps set up your devices and first "
+                         "channels. Or, if you've used WaveMix on another PC, import its profile.");
+    auto* welcome_buttons = buttons(*welcome);
+    auto* skip = Gtk::make_managed<Gtk::Button>("Skip");
+    auto* import = Gtk::make_managed<Gtk::Button>("Import a profile…");
+    auto* start = Gtk::make_managed<Gtk::Button>("Set up step by step");
+    start->add_css_class("suggested-action");
+    welcome_buttons->append(*skip);
+    welcome_buttons->append(*import);
+    welcome_buttons->append(*start);
+    skip->signal_clicked().connect(finish);
+    import->signal_clicked().connect([this] {
+        choose_profile_file([this](const std::string& text) {
+            if (setup_from_profile(text))
+                close_dialog();
+        });
+    });
+    start->signal_clicked().connect([stack] { stack->set_visible_child("devices"); });
+
+    // 2. Devices: where the Personal mix plays and which mic, each with a fallback.
+    auto* devices = page("devices", "Your devices",
+                         "Where you hear your Personal mix, and your microphone. A fallback is used while the one "
+                         "you picked isn't connected.");
+    auto* grid = Gtk::make_managed<Gtk::Grid>();
+    grid->set_row_spacing(10);
+    grid->set_column_spacing(16);
+    devices->append(*grid);
+    int row = 0;
+    const auto picker = [&](const std::string& title, const std::string& first, const json& list) {
+        auto names = std::make_shared<std::vector<std::string>>(std::vector<std::string>{""});
+        std::vector<Glib::ustring> labels{first};
+        for (const auto& device : list) {
+            names->push_back(str(device.value("name", json(""))));
+            labels.emplace_back(str(device.value("description", json(names->back()))));
+        }
+        auto* drop = Gtk::make_managed<Gtk::DropDown>(Gtk::StringList::create(labels));
+        drop->set_hexpand(true);
+        grid->attach(*make_label(title, {}, 0.0F), 0, row);
+        grid->attach(*drop, 1, row++);
+        return std::pair{drop, names};
+    };
+    const json outputs = state_.value("outputs", json::array());
+    const bool mic = state_.contains("mic") && state_["mic"].value("enabled", true);
+    const json inputs = mic ? state_["mic"].value("inputs", json::array()) : json::array();
+    auto output = picker("Output", "Follow the system default", outputs);
+    auto fallback_output = picker("Fallback output", "No fallback", outputs);
+    std::pair<Gtk::DropDown*, std::shared_ptr<std::vector<std::string>>> input{};
+    std::pair<Gtk::DropDown*, std::shared_ptr<std::vector<std::string>>> fallback_input{};
+    if (mic) {
+        input = picker("Microphone", "Follow the system default", inputs);
+        fallback_input = picker("Fallback mic", "No fallback", inputs);
+    }
+    auto* devices_buttons = buttons(*devices);
+    auto* back1 = Gtk::make_managed<Gtk::Button>("Back");
+    auto* next1 = Gtk::make_managed<Gtk::Button>("Next");
+    next1->add_css_class("suggested-action");
+    devices_buttons->append(*back1);
+    devices_buttons->append(*next1);
+    back1->signal_clicked().connect([stack] { stack->set_visible_child("welcome"); });
+    next1->signal_clicked().connect([stack] { stack->set_visible_child("channels"); });
+
+    // 3. Channels: the presets, ticked ones added.
+    auto* channels = page("channels", "Your channels",
+                          "Pick the channels to start with. You can rename them, add more and route apps into them "
+                          "afterwards.");
+    auto ticks = std::make_shared<std::vector<std::pair<Gtk::CheckButton*, json>>>();
+    for (const auto& preset : state_.value("presets", json::array())) {
+        auto* check = Gtk::make_managed<Gtk::CheckButton>(str(preset["label"]));
+        check->set_active(str(preset["label"]) != "Browser");
+        channels->append(*check);
+        ticks->emplace_back(check, preset);
+    }
+    auto* channels_buttons = buttons(*channels);
+    auto* back2 = Gtk::make_managed<Gtk::Button>("Back");
+    auto* next2 = Gtk::make_managed<Gtk::Button>("Next");
+    next2->add_css_class("suggested-action");
+    channels_buttons->append(*back2);
+    channels_buttons->append(*next2);
+    back2->signal_clicked().connect([stack] { stack->set_visible_child("devices"); });
+    next2->signal_clicked().connect([stack] { stack->set_visible_child("done"); });
+
+    // 4. Done: the profile's name, then everything is applied at once.
+    auto* done = page("done", "All set",
+                      "Your setup is saved as a profile, which you can switch, export and import from the menu at "
+                      "the top left. Next: click a channel's app strip to route apps into it, and add WaveMix's "
+                      "devices in OBS (☰ → OBS sources…).");
+    auto* name_row = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 12);
+    name_row->append(*make_label("Profile name", {}, 0.0F));
+    auto* name = Gtk::make_managed<Gtk::Entry>();
+    name->set_text(str(state_.value("profiles", json::object()).value("active", json("Default"))));
+    name->set_max_length(static_cast<int>(core::kMaxProfileName));
+    name->set_hexpand(true);
+    name_row->append(*name);
+    done->append(*name_row);
+    auto* done_buttons = buttons(*done);
+    auto* back3 = Gtk::make_managed<Gtk::Button>("Back");
+    auto* go = Gtk::make_managed<Gtk::Button>("Finish");
+    go->add_css_class("suggested-action");
+    done_buttons->append(*back3);
+    done_buttons->append(*go);
+    back3->signal_clicked().connect([stack] { stack->set_visible_child("channels"); });
+    go->signal_clicked().connect([this, output, fallback_output, input, fallback_input, ticks, name, finish] {
+        const auto picked = [](const auto& p) { return (*p.second)[p.first->get_selected()]; };
+        const std::string profile = str(state_.value("profiles", json::object()).value("active", json("")));
+        std::string wanted = name->get_text();
+        wanted.erase(0, wanted.find_first_not_of(" \t"));
+        wanted.erase(wanted.find_last_not_of(" \t") + 1);
+        call([&] {
+            const std::string out = picked(output);
+            client_.set_setting("personal_output", out.empty() ? "default" : out);
+            client_.set_setting("fallback_output", picked(fallback_output));
+            if (input.first) {
+                client_.set_mic_input(picked(input));
+                client_.set_setting("fallback_input", picked(fallback_input));
+            }
+            for (const auto& [check, preset] : *ticks)
+                if (check->get_active())
+                    client_.add_channel(str(preset["label"]), str(preset["icon"]));
+            if (!wanted.empty() && wanted != profile)
+                client_.rename_profile(profile, wanted);
+        });
+        finish();
+    });
+
+    dialog.set_child(*stack);
+    // However it closes (Finish, Skip, an import, Escape, the close button), it's done.
+    on_dialog_closed_ = [this] { call([&] { client_.set_setting("setup_done", true); }); };
+    dialog.present();
 }
 
 // The main menu: Preferences, OBS sources, bug report, About, Restart and Quit.
@@ -876,6 +1096,15 @@ void MixerWindow::open_preferences()
     grid.attach(*fallback_note, 0, row++, 2);
 
     add_theme_rows(grid, row);
+
+    auto* setup = Gtk::make_managed<Gtk::Button>("Run the setup again…");
+    setup->set_halign(Gtk::Align::START);
+    setup->set_margin_top(8);
+    setup->signal_clicked().connect([this] {
+        close_dialog();
+        open_setup();
+    });
+    grid.attach(*setup, 0, row++, 2);
 
     dialog_->present();
 }
@@ -1105,8 +1334,8 @@ void MixerWindow::reset_wavemix()
     // Asked from Preferences: Cancel goes back there.
     confirm("Reset WaveMix", "Reset WaveMix?",
             "All your preferences and configuration will be reset: your channels and the apps in them, the "
-            "mic's filters, your levels, the output device and the theme go back to how a new install has "
-            "them. This can't be undone.",
+            "mic's filters, your levels, your profiles, the output device and the theme go back to how a new "
+            "install has them, and the setup is offered again. This can't be undone.",
             "OK",
             [this] {
                 try {
@@ -1116,6 +1345,7 @@ void MixerWindow::reset_wavemix()
                     return;
                 }
                 show_message("WaveMix has been reset.", 4);
+                setup_offered_ = false;  // a first run again
                 queue_refresh();
             },
             [this] { open_preferences(); });

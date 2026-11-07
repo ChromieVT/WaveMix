@@ -25,7 +25,7 @@ inline constexpr std::string_view kObjectPath = "/io/github/ChromieVT/WaveMix/Da
 inline constexpr std::string_view kInterface = "io.github.ChromieVT.WaveMix.Daemon1";
 
 // Where WaveMix lives: the About dialog and the bug report point here.
-inline constexpr std::string_view kWebsite = "https://github.com/ChromieVT/WaveMix-Dev";
+inline constexpr std::string_view kWebsite = "https://github.com/ChromieVT/wavemix";
 
 // ---- Channels ----------------------------------------------------------------------
 

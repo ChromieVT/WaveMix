@@ -178,6 +178,7 @@ label { color: var(--wm-text); }
 .wm-caption { font-size: 0.82em; color: var(--wm-text-dim); }
 .wm-header-title { font-weight: bold; font-size: 1.1em; }
 .wm-profile-name { font-weight: bold; }
+.wm-setup-title { font-weight: bold; font-size: 1.4em; }
 .wm-header-version { font-size: 0.82em; color: var(--wm-text-dim); }
 .wm-about-name { font-size: 1.8em; font-weight: bold; }
 .wm-about-version { color: var(--wm-personal); font-weight: bold; padding: 4px 16px; border-radius: 9999px;

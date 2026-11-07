@@ -2,9 +2,9 @@
 This document outlines the planned direction for the project. Items are grouped by status or planned version and are subject to change.
 
 ## 🚧 In Progress — (for v0.0.8-alpha)
-- [x] **Fallback devices**
-- [x] **Profiles**
-- [ ] **Initial setup**
+- [x] **Fallback devices** (completed - 4 November 2026)
+- [x] **Profiles** (completed - 7 November 2026)
+- [x] **Initial setup** (completed - 7 November 2026)
 - [ ] **Notifications**
 - [ ] **Move everything to inside the service**
 
