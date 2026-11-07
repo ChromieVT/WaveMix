@@ -229,6 +229,54 @@ void Client::set_in_vod(const std::string& channel, bool in_vod)
     call("SetInVod", g_variant_new("(sb)", channel.c_str(), in_vod));
 }
 
+// Calls SetChannelEnabled.
+void Client::set_channel_enabled(const std::string& channel, bool enabled)
+{
+    call("SetChannelEnabled", g_variant_new("(sb)", channel.c_str(), enabled));
+}
+
+// Calls SwitchProfile.
+void Client::switch_profile(const std::string& name)
+{
+    call("SwitchProfile", g_variant_new("(s)", name.c_str()));
+}
+
+// Calls SaveProfileAs.
+void Client::save_profile_as(const std::string& name)
+{
+    call("SaveProfileAs", g_variant_new("(s)", name.c_str()));
+}
+
+// Calls RenameProfile.
+void Client::rename_profile(const std::string& name, const std::string& new_name)
+{
+    call("RenameProfile", g_variant_new("(ss)", name.c_str(), new_name.c_str()));
+}
+
+// Calls DeleteProfile.
+void Client::delete_profile(const std::string& name)
+{
+    call("DeleteProfile", g_variant_new("(s)", name.c_str()));
+}
+
+// Calls ExportProfile and returns the export file's text.
+std::string Client::export_profile(const std::string& name)
+{
+    Reply reply(call("ExportProfile", g_variant_new("(s)", name.c_str()), "(s)"));
+    const char* text = nullptr;
+    g_variant_get(reply.get(), "(&s)", &text);
+    return text;
+}
+
+// Calls ImportProfile and returns the name the profile was stored under.
+std::string Client::import_profile(const std::string& text)
+{
+    Reply reply(call("ImportProfile", g_variant_new("(s)", text.c_str()), "(s)"));
+    const char* name = nullptr;
+    g_variant_get(reply.get(), "(&s)", &name);
+    return name;
+}
+
 // Calls SetSetting with the value JSON-encoded.
 void Client::set_setting(const std::string& key, const json& value)
 {

@@ -302,6 +302,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": [
           {
             "index": 1003,
@@ -342,6 +343,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -359,6 +361,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -376,6 +379,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       }
     ],
@@ -470,6 +474,12 @@
         "channel": "game"
       }
     ],
+    "profiles": {
+      "active": "Default",
+      "names": [
+        "Default"
+      ]
+    },
     "presets": [
       {
         "label": "System",

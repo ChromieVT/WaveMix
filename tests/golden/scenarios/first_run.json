@@ -67,6 +67,12 @@
       "vod_enabled": false
     },
     "assignments": [],
+    "profiles": {
+      "active": "Default",
+      "names": [
+        "Default"
+      ]
+    },
     "presets": [
       {
         "label": "System",

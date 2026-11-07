@@ -13,6 +13,7 @@ core_tests = executable('core-tests',
   'test_ids_and_names.cpp',
   'test_log.cpp',
   'test_mic.cpp',
+  'test_profiles.cpp',
   'test_login_conf.cpp',
   dependencies : [core_dep, gtest_dep],
 )

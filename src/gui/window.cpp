@@ -9,6 +9,7 @@
 #include "core/log.hpp"
 #include "core/mic.hpp"
 #include "core/names.hpp"
+#include "core/profiles.hpp"
 #include "report/bug_report.hpp"
 #include "gui/helpers.hpp"
 #include "gui/theme.hpp"
@@ -37,6 +38,7 @@ MixerWindow::MixerWindow(client::Client& client) : client_(client)
     set_default_size(1000, 620);
 
     auto* header = Gtk::make_managed<Gtk::HeaderBar>();
+    header->pack_start(*make_profiles_menu());
     header->pack_end(*make_main_menu());
 
     // The title, with the version beside it: which build is running should never be a
@@ -45,7 +47,7 @@ MixerWindow::MixerWindow(client::Client& client) : client_(client)
     auto* name = make_label("WaveMix", {"wm-header-title"});
     auto* version = make_label(WAVEMIX_VERSION, {"wm-header-version"});
     // Centred, not baseline-aligned: lining up two font sizes by baseline makes the
-    // title bar taller than its 32 px.
+    // title bar taller than its 48 px.
     version->set_valign(Gtk::Align::CENTER);
     name->set_valign(Gtk::Align::CENTER);
     title->append(*name);
@@ -345,6 +347,65 @@ void MixerWindow::rename_channel(const json& channel)
     dialog.present();
 }
 
+// Enables the channel straight away, or asks for confirmation before disabling it.
+void MixerWindow::set_channel_enabled(const json& channel, bool enabled)
+{
+    const std::string id = str(channel["id"]);
+    if (enabled) {
+        call([&] { client_.set_channel_enabled(id, true); });
+        return;
+    }
+    confirm("Disable channel", "Disable “" + str(channel["label"]) + "”?",
+            "Its apps go back to your default output, and OBS no longer hears it. It keeps its place, name, "
+            "levels and apps, and they come back when you enable it again.",
+            "Disable", [this, id] { call([&] { client_.set_channel_enabled(id, false); }); });
+}
+
+// Shows a dialog with a text entry (at most kMaxProfileName characters), an optional
+// note, and Cancel and `ok` buttons; passes the trimmed text to `on_ok` unless it's empty.
+void MixerWindow::ask_text(const std::string& title, const std::string& initial, const std::string& note,
+                           const std::string& ok, std::function<void(const std::string&)> on_ok)
+{
+    Gtk::Window& dialog = new_dialog(title);
+    auto* box = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 10);
+    box->set_margin(16);
+    auto* entry = Gtk::make_managed<Gtk::Entry>();
+    entry->set_text(initial);
+    entry->set_max_length(static_cast<int>(core::kMaxProfileName));
+    box->append(*entry);
+    if (!note.empty()) {
+        auto* caption = make_label(note, {"wm-caption"}, 0.0F, true);
+        caption->set_max_width_chars(48);
+        box->append(*caption);
+    }
+
+    auto* buttons = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
+    buttons->add_css_class("wm-dialog-buttons");
+    buttons->set_halign(Gtk::Align::END);
+    buttons->set_margin_top(6);
+    auto* cancel = Gtk::make_managed<Gtk::Button>("Cancel");
+    auto* accept = Gtk::make_managed<Gtk::Button>(ok);
+    accept->add_css_class("suggested-action");
+    buttons->append(*cancel);
+    buttons->append(*accept);
+    box->append(*buttons);
+    dialog.set_child(*box);
+
+    auto apply = [this, entry, on_ok = std::move(on_ok)] {
+        std::string text = entry->get_text();
+        text.erase(0, text.find_first_not_of(" \t"));
+        text.erase(text.find_last_not_of(" \t") + 1);
+        close_dialog();
+        if (!text.empty())
+            on_ok(text);
+    };
+    cancel->signal_clicked().connect(sigc::mem_fun(*this, &MixerWindow::close_dialog));
+    accept->signal_clicked().connect(apply);
+    entry->signal_activate().connect(apply);
+    dialog.present();
+    entry->grab_focus();
+}
+
 // Asks for confirmation, then removes the channel.
 void MixerWindow::remove_channel(const json& channel)
 {
@@ -389,6 +450,9 @@ void MixerWindow::refresh()
              (message_.get_text() == kWaitingForPipeWire || message_.get_text() == kNotRunning))
         hide_message();  // that problem is over
     outputs_->update(state_);
+    if (state_.contains("profiles"))
+        profile_label_->set_text(str(state_["profiles"].value("active", json(""))));
+    profiles_button_->set_visible(state_.contains("profiles"));  // not from a service before profiles
 
     // The theme (Preferences), when it changes: a built-in one, or Custom, the user's
     // stylesheet on top of Dark.
@@ -403,7 +467,8 @@ void MixerWindow::refresh()
 
     decltype(structure_) structure;
     for (const auto& ch : state_["channels"])
-        structure.emplace_back(str(ch["id"]), str(ch["label"]), str(ch["icon"]), ch.value("in_vod", true));
+        structure.emplace_back(str(ch["id"]), str(ch["label"]), str(ch["icon"]), ch.value("in_vod", true),
+                               ch.value("enabled", true));
     // The VOD buttons come and go with the VOD Mix preference, so it rebuilds too.
     const bool vod = state_.value("settings", json::object()).value("vod_enabled", false);
     // The Mic column is there while the mic is enabled (Preferences) and the service is
@@ -528,6 +593,158 @@ void MixerWindow::drop_channel(const std::string& id, int position)
 // =====================================================================================
 // Settings
 // =====================================================================================
+
+// Builds the title bar's profiles button: the profile in use and an arrow, hidden until
+// the state lists profiles.
+Gtk::MenuButton* MixerWindow::make_profiles_menu()
+{
+    // The name of the profile in use, cut short past about 20 characters so it never
+    // crowds the title, and a menu filled each time it opens.
+    auto* button = Gtk::make_managed<Gtk::MenuButton>();
+    profiles_button_ = button;
+    button->set_visible(false);  // until a state says there are profiles
+    button->set_has_frame(false);
+    button->set_tooltip_text("Profiles");
+    button->add_css_class("wm-profiles");
+    auto* content = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 6);
+    profile_label_ = make_label("", {"wm-profile-name"}, 0.0F);
+    profile_label_->set_ellipsize(Pango::EllipsizeMode::END);
+    profile_label_->set_max_width_chars(20);
+    auto* arrow = Gtk::make_managed<Gtk::Image>();
+    arrow->set_from_icon_name("pan-down-symbolic");
+    content->append(*profile_label_);
+    content->append(*arrow);
+    button->set_child(*content);
+    profiles_popover_ = Gtk::make_managed<Gtk::Popover>();
+    profiles_popover_->signal_show().connect(sigc::mem_fun(*this, &MixerWindow::fill_profiles_menu));
+    button->set_popover(*profiles_popover_);
+    return button;
+}
+
+// Rebuilds the profiles menu: every profile (the one in use ticked, a click switches),
+// then Save as, Rename, Export, Import and Delete (only while there's another profile).
+void MixerWindow::fill_profiles_menu()
+{
+    auto* box = popover_box(*profiles_popover_);
+    const json profiles = state_.value("profiles", json::object());
+    const std::string active = str(profiles.value("active", json("")));
+    const json names = profiles.value("names", json::array());
+
+    // The profiles: the one in use ticked, a click on another switches to it.
+    for (const auto& item : names) {
+        const std::string name = str(item);
+        auto* button = Gtk::make_managed<Gtk::Button>();
+        button->add_css_class("flat");
+        button->add_css_class("wm-menu-item");
+        auto* row = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
+        auto* tick = Gtk::make_managed<Gtk::Image>();
+        tick->set_from_icon_name("object-select-symbolic");
+        tick->set_opacity(name == active ? 1.0 : 0.0);
+        auto* label = make_label(name, {}, 0.0F);
+        label->set_ellipsize(Pango::EllipsizeMode::END);
+        label->set_max_width_chars(28);
+        row->append(*tick);
+        row->append(*label);
+        button->set_child(*row);
+        button->signal_clicked().connect([this, name, active] {
+            profiles_popover_->popdown();
+            if (name != active)
+                call([&] { client_.switch_profile(name); });
+        });
+        box->append(*button);
+    }
+    box->append(*Gtk::make_managed<Gtk::Separator>());
+
+    menu_item(*profiles_popover_, *box, "Save as a new profile…", [this, active] {
+        ask_text("New profile", active.empty() ? "" : active + " copy",
+                 "A copy of your setup as it is now. You carry on in the new one.", "Save",
+                 [this](const std::string& name) { call([&] { client_.save_profile_as(name); }); });
+    });
+    menu_item(*profiles_popover_, *box, "Rename…", [this, active] {
+        ask_text("Rename profile", active, "", "Rename",
+                 [this, active](const std::string& name) { call([&] { client_.rename_profile(active, name); }); });
+    });
+    menu_item(*profiles_popover_, *box, "Export…", [this] { export_profile(); });
+    menu_item(*profiles_popover_, *box, "Import…", [this] { import_profile(); });
+    box->append(*Gtk::make_managed<Gtk::Separator>());
+    menu_item(
+        *profiles_popover_, *box, "Delete profile…",
+        [this, active] {
+            confirm("Delete profile", "Delete “" + active + "”?",
+                    "WaveMix switches to another profile first. Export it before if you may want it back.",
+                    "Delete", [this, active] { call([&] { client_.delete_profile(active); }); });
+        },
+        names.size() > 1, true);
+}
+
+// Gets the profile in use's export text from the daemon, asks where to save it, and
+// writes it there.
+void MixerWindow::export_profile()
+{
+    const std::string active = str(state_.value("profiles", json::object()).value("active", json("")));
+    std::string text;
+    try {
+        text = client_.export_profile(active);
+    } catch (const client::ClientError& e) {
+        show_error(e.what());
+        return;
+    }
+    auto dialog = Gtk::FileDialog::create();
+    dialog->set_title("Export profile");
+    dialog->set_initial_name(active + ".wavemix-profile.json");
+    dialog->save(*this, [this, dialog, text, active](const Glib::RefPtr<Gio::AsyncResult>& result) {
+        Glib::RefPtr<Gio::File> file;
+        try {
+            file = dialog->save_finish(result);
+        } catch (const Glib::Error&) {
+            return;  // cancelled
+        }
+        try {
+            std::string etag;
+            file->replace_contents(text, "", etag);
+            show_message("Exported “" + active + "” as " + file->get_parse_name() + ".", 6);
+        } catch (const Glib::Error& e) {
+            show_error("Could not export the profile: " + std::string(e.what()));
+        }
+    });
+}
+
+// Asks for a profile file, has the daemon import it and says what it was named.
+void MixerWindow::import_profile()
+{
+    auto dialog = Gtk::FileDialog::create();
+    dialog->set_title("Import profile");
+    auto filter = Gtk::FileFilter::create();
+    filter->set_name("WaveMix profiles");
+    filter->add_pattern("*.json");
+    auto filters = Gio::ListStore<Gtk::FileFilter>::create();
+    filters->append(filter);
+    dialog->set_filters(filters);
+    dialog->open(*this, [this, dialog](const Glib::RefPtr<Gio::AsyncResult>& result) {
+        Glib::RefPtr<Gio::File> file;
+        try {
+            file = dialog->open_finish(result);
+        } catch (const Glib::Error&) {
+            return;  // cancelled
+        }
+        std::string text;
+        try {
+            char* contents = nullptr;
+            gsize length = 0;
+            std::string etag;
+            file->load_contents(contents, length, etag);
+            text.assign(contents, length);
+            g_free(contents);
+        } catch (const Glib::Error& e) {
+            show_error("Could not read the profile: " + std::string(e.what()));
+            return;
+        }
+        std::string name;
+        call([&] { name = client_.import_profile(text); });
+        if (!name.empty())
+            show_message("Imported “" + name + "”. Pick it in the profiles menu to use it.", 6);
+    });
+}
 
 // The main menu: Preferences, OBS sources, bug report, About, Restart and Quit.
 Gtk::MenuButton* MixerWindow::make_main_menu()

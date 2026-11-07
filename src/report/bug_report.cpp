@@ -21,6 +21,7 @@
 #include "core/mic.hpp"
 #include "core/names.hpp"
 #include "core/paths.hpp"
+#include "core/profiles.hpp"
 #include "pw/connection.hpp"
 #include "pw/registry.hpp"
 #include "pw/server_info.hpp"
@@ -294,10 +295,11 @@ void pipewire_and_graph_sections(std::ostream& out, const core::json& config)
         out << "WaveMix Mic: " << percent(*mic) << "\n";
 
     // What the config expects that isn't there: the quickest way to spot a broken channel.
+    // (Disabled channels have nothing to find.)
     std::vector<std::string> missing;
     if (mic_on && !g.hardware_sources().empty() && !g.source_named(std::string(core::kMicSource)))
         missing.push_back("source " + std::string(core::kMicSource) + " (WaveMix Mic)");
-    const auto channels = config.value("channels", core::json::array());
+    const auto channels = core::running_config(config).value("channels", core::json::array());
     if (!channels.empty() && !g.sink_named(std::string(core::kPersonalSink)))
         missing.push_back("sink " + std::string(core::kPersonalSink) + " (WaveMix Personal Mix)");
     if (!channels.empty() && !g.hardware_sinks().empty() && !g.link_stream(std::string(core::kPersonalOutTag)))

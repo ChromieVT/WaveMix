@@ -15,6 +15,7 @@
 #include "core/log.hpp"
 #include "core/links.hpp"
 #include "core/login_conf.hpp"
+#include "core/profiles.hpp"
 #include "plumbing/pulse_control.hpp"
 #include "plumbing/meters.hpp"
 #include "plumbing/pulse_plumbing.hpp"
@@ -111,6 +112,7 @@ Mixer::Mixer(core::Paths paths, std::string version)
       config_(core::load_config(paths_)),
       state_(core::load_state(paths_))
 {
+    core::ensure_profiles(config_, state_);
 }
 
 // Tears down the session (if any) and everything else in member order.
@@ -306,14 +308,17 @@ void Mixer::reconcile()
     // The devices first (pipewire-pulse), then what runs between them in this process:
     // the loopbacks and the mic chain. The Personal Mix exists while anything plays into
     // it: a channel, or the mic's Monitor.
-    const bool personal_mix = !config_["channels"].empty() || core::mic_enabled(config_);
+    //
+    // Disabled channels have no devices: they're left out of everything made here.
+    const json running = core::running_config(config_);
+    const bool personal_mix = !running["channels"].empty() || core::mic_enabled(config_);
     if (personal_mix) {
         for (const auto& line : session_->plumbing->ensure_personal())
             log("created " + line);
     } else {
         session_->plumbing->remove_personal();
     }
-    for (const auto& line : session_->plumbing->ensure(config_))
+    for (const auto& line : session_->plumbing->ensure(running))
         log("created " + line);
     reconcile_mic();
     sync_pulse_links();
@@ -330,7 +335,7 @@ void Mixer::sync_links()
     // unloads what the config no longer has (a removed channel, the VOD Mix turned off,
     // the mic off).
     const pw::Graph g = graph();
-    const auto wanted = core::wanted_links(config_, resolve_personal_output(g), mic_plan(g));
+    const auto wanted = core::wanted_links(core::running_config(config_), resolve_personal_output(g), mic_plan(g));
     for (const auto& line : session_->links->sync(wanted, g))
         log(line);
 }
@@ -347,7 +352,7 @@ void Mixer::sync_pulse_links()
         return;
     const pw::Graph g = graph();
     const auto output = resolve_personal_output(g);
-    for (const auto& line : session_->plumbing->sync_loopbacks(core::wanted_pulse_links(config_, output)))
+    session_->plumbing->sync_loopbacks(core::wanted_pulse_links(core::running_config(config_), output)))
         log(line);
     session_->pulse_links_cleared = !on;
     if (on)
@@ -505,7 +510,7 @@ void Mixer::write_login_conf()
         std::optional<std::string> output;
         if (session_ && core::pulse_routing(config_))
             output = resolve_personal_output(graph());
-        core::write_login_conf(paths_, config_, output);
+        core::write_login_conf(paths_, core::running_config(config_), output);
     } catch (const std::system_error& e) {
         log_error("could not write " + paths_.login_conf.string() + ": " + e.what());
     }
@@ -816,25 +821,7 @@ void Mixer::remove_channel(std::string_view id)
     require_connection();
     if (!channel(id))
         throw failed("no channel '" + std::string(id) + "'");
-
-    // Send the channel's apps somewhere sensible before its sink disappears: the
-    // default output if that's a real device, else wherever the Personal mix plays.
-    const pw::Graph g = graph();
-    const pw::Node* base = g.sink_named(core::base_sink(id));
-    const pw::Node* fallback = nullptr;
-    for (const pw::Node* sink : g.hardware_sinks())
-        if (sink->name() == g.default_sink)
-            fallback = sink;
-    if (!fallback) {
-        if (const auto personal = resolve_personal_output(g))
-            fallback = g.sink_named(*personal);
-    }
-    if (base && fallback) {
-        for (const auto& [node_id, stream] : g.nodes) {
-            if (stream.is_stream() && !core::is_internal(stream.props) && g.sink_of(stream) == base)
-                move_stream(stream, *fallback);
-        }
-    }
+    move_apps_out(id);
 
     auto& channels = config_["channels"];
     channels.erase(std::remove_if(channels.begin(), channels.end(),
@@ -851,6 +838,63 @@ void Mixer::remove_channel(std::string_view id)
 
     session_->plumbing->remove_channel(id);
     reconcile();  // its loopbacks go, and the Personal Mix too if nothing's left
+    write_login_conf();
+}
+
+// Moves the apps playing into a channel to a real output, except those in `keep`.
+void Mixer::move_apps_out(std::string_view id, const std::set<std::string>& keep)
+{
+    // Send the channel's apps somewhere sensible before its sink disappears: the
+    // default output if that's a real device, else wherever the Personal mix plays.
+    // Apps in `keep` (app keys) stay.
+    const pw::Graph g = graph();
+    const pw::Node* base = g.sink_named(core::base_sink(id));
+    const pw::Node* fallback = nullptr;
+    for (const pw::Node* sink : g.hardware_sinks())
+        if (sink->name() == g.default_sink)
+            fallback = sink;
+    if (!fallback) {
+        if (const auto personal = resolve_personal_output(g))
+            fallback = g.sink_named(*personal);
+    }
+    if (base && fallback) {
+        for (const auto& [node_id, stream] : g.nodes) {
+            if (!stream.is_stream() || core::is_internal(stream.props) || g.sink_of(stream) != base)
+                continue;
+            if (const auto key = core::app_key(stream.props); key && keep.contains(*key))
+                continue;
+            move_stream(stream, *fallback);
+        }
+    }
+}
+
+// SetChannelEnabled: stores the flag, removes or recreates the channel's sink and
+// loopbacks, and moves its apps out or back in.
+void Mixer::set_channel_enabled(std::string_view id, bool enabled)
+{
+    require_connection();
+    json* ch = channel(id);
+    if (!ch)
+        throw failed("no channel '" + std::string(id) + "'");
+    if (core::channel_enabled(*ch) == enabled)
+        return;
+    if (enabled) {
+        ch->erase("enabled");
+    } else {
+        move_apps_out(id);
+        (*ch)["enabled"] = false;
+    }
+    save_config();
+    if (!enabled) {
+        // Its sink and loopbacks go; its place, name, levels and app routes stay.
+        session_->plumbing->remove_channel(id);
+    } else {
+        for (core::Mix mix : core::kMixes)
+            born_.erase(core::link_tag(id, mix));  // its saved levels go on the new loopbacks
+    }
+    reconcile();
+    if (enabled)
+        route_apps();  // its apps come back to it
     write_login_conf();
 }
 
@@ -968,6 +1012,7 @@ void Mixer::reset()
     // it's the system's, not a preference.
     config_ = core::default_config();
     state_["levels"] = json::object();
+    core::ensure_profiles(config_, state_);  // only "Default", as a new install has
     save_config();
     save_state();
     session_->plumbing->remove_vod();
@@ -979,6 +1024,218 @@ void Mixer::reset()
     set_level(level_stream(g, std::string(core::kMicLevelTag)), false);
     set_level(level_stream(g, std::string(core::kMicMonitorTag)), true);
     log("reset to the defaults");
+}
+
+// =====================================================================================
+// Profiles (core/profiles.hpp)
+// =====================================================================================
+
+// Saves the current levels and copies the live setup into the profile in use.
+void Mixer::refresh_profile()
+{
+    // The profile in use is the live setup: bring its entry up to date.
+    if (session_)
+        snapshot_levels();
+    const std::string active = core::active_profile(config_);
+    json snapshot = core::snapshot_profile(config_, state_, active);
+    if (json* entry = core::find_profile(config_, active))
+        *entry = std::move(snapshot);
+    else
+        config_["profiles"].push_back(std::move(snapshot));
+}
+
+// The stored profile called `name`; throws Failed if there's none.
+const json& Mixer::profile_named(std::string_view name)
+{
+    const json* found = core::find_profile(config_, name);
+    if (!found)
+        throw failed("no profile '" + std::string(name) + "'");
+    return *found;
+}
+
+// SwitchProfile: saves the live setup into its profile, removes the channels the new one
+// doesn't run, applies it, routes the apps and puts its levels on the loopbacks.
+void Mixer::switch_profile(std::string_view name)
+{
+    require_connection();
+    const std::string wanted_name = profile_named(name)["name"];
+    if (wanted_name == core::active_profile(config_))
+        return;
+    refresh_profile();
+    const json wanted = profile_named(wanted_name);
+
+    // Channels that won't be running afterwards: their apps leave (unless the new
+    // profile routes them to a channel that stays), then their sinks go.
+    std::set<std::string> staying;
+    for (const auto& ch : wanted["channels"])
+        if (core::channel_enabled(ch))
+            staying.insert(string_field(ch, "id"));
+    std::set<std::string> kept_apps;
+    for (const auto& rule : wanted["assignments"])
+        if (staying.contains(string_field(rule, "channel")))
+            kept_apps.insert(string_field(rule, "app"));
+    for (const auto& ch : config_["channels"]) {
+        const std::string id = string_field(ch, "id");
+        if (core::channel_enabled(ch) && !staying.contains(id)) {
+            move_apps_out(id, kept_apps);
+            session_->plumbing->remove_channel(id);
+        }
+    }
+
+    core::apply_profile(config_, state_, wanted);
+    config_["profile"] = wanted_name;
+    for (const auto& id : staying)
+        for (core::Mix mix : core::kMixes)
+            born_.erase(core::link_tag(id, mix));
+    save_config();
+    save_state();
+    reconcile();     // new channels' devices and loopbacks, the mic chain, the output
+    route_apps();    // apps go where the new profile routes them...
+    unroute_apps();  // ...and the ones it doesn't route leave its channels
+    write_login_conf();
+
+    // Loopbacks that were already there take the profile's levels now; new ones get them
+    // from state.json as they appear.
+    const pw::Graph g = graph();
+    for (const auto& id : staying) {
+        for (core::Mix mix : core::kMixes) {
+            const std::string tag = core::link_tag(id, mix);
+            const pw::Node* link = g.link_stream(tag);
+            if (!link)
+                continue;
+            const json& level = state_["levels"].value(tag, json{{"volume", 1.0}, {"muted", false}});
+            session_->registry->set_volume(link->id, level.value("volume", 1.0));
+            session_->registry->set_mute(link->id, level.value("muted", false));
+        }
+    }
+    log("switched to the profile '" + wanted_name + "'");
+}
+
+// Sends apps out of the channels they have no route to, to the Personal output.
+void Mixer::unroute_apps()
+{
+    // Apps playing into a channel without a route to it go back to the user's output.
+    std::map<std::string, std::string> rules;
+    for (const auto& rule : config_["assignments"])
+        rules[string_field(rule, "app")] = string_field(rule, "channel");
+    const pw::Graph g = graph();
+    const auto personal = resolve_personal_output(g);
+    const pw::Node* out = personal ? g.sink_named(*personal) : nullptr;
+    if (!out)
+        return;
+    for (const auto& ch : config_["channels"]) {
+        const std::string id = string_field(ch, "id");
+        const pw::Node* sink = g.sink_named(core::base_sink(id));
+        if (!sink)
+            continue;
+        for (const auto& [node_id, stream] : g.nodes) {
+            if (!stream.is_stream() || core::is_internal(stream.props) || g.sink_of(stream) != sink)
+                continue;
+            const auto key = core::app_key(stream.props);
+            if (!key || !rules.contains(*key) || rules[*key] != id)
+                move_stream(stream, *out);
+        }
+    }
+}
+
+// SaveProfileAs: checks the name, then copies the live setup into a new profile and
+// makes it the one in use.
+void Mixer::save_profile_as(std::string_view name)
+{
+    require_connection();
+    const std::string clean = core::clean_profile_name(name);
+    if (clean.empty())
+        throw failed("a profile needs a name of 1 to " + std::to_string(core::kMaxProfileName) + " characters");
+    if (core::find_profile(config_, clean))
+        throw failed("there's already a profile called '" + clean + "'");
+    refresh_profile();
+    config_["profiles"].push_back(core::snapshot_profile(config_, state_, clean));
+    config_["profile"] = clean;
+    save_config();
+}
+
+// RenameProfile: checks the new name and renames the profile (and "profile" if it's the
+// one in use).
+void Mixer::rename_profile(std::string_view name, std::string_view new_name)
+{
+    require_connection();
+    const std::string old_name = profile_named(name)["name"];
+    const std::string clean = core::clean_profile_name(new_name);
+    if (clean.empty())
+        throw failed("a profile needs a name of 1 to " + std::to_string(core::kMaxProfileName) + " characters");
+    if (const json* other = core::find_profile(config_, clean); other && (*other)["name"] != old_name)
+        throw failed("there's already a profile called '" + clean + "'");
+    (*core::find_profile(config_, old_name))["name"] = clean;
+    if (core::active_profile(config_) == old_name)
+        config_["profile"] = clean;
+    save_config();
+}
+
+// DeleteProfile: refuses the last profile; switches away first if it's the one in use.
+void Mixer::delete_profile(std::string_view name)
+{
+    require_connection();
+    const std::string doomed = profile_named(name)["name"];
+    auto& profiles = config_["profiles"];
+    if (profiles.size() < 2)
+        throw failed("the last profile can't be deleted");
+    if (core::active_profile(config_) == doomed) {
+        std::string other;
+        for (const auto& profile : profiles)
+            if (profile["name"] != doomed && other.empty())
+                other = profile["name"];
+        switch_profile(other);
+    }
+    profiles.erase(std::remove_if(profiles.begin(), profiles.end(),
+                                  [&](const json& p) { return p["name"] == doomed; }),
+                   profiles.end());
+    save_config();
+}
+
+// ExportProfile: the profile as indented JSON with the format version, brought up to
+// date first if it's the one in use.
+std::string Mixer::export_profile(std::string_view name)
+{
+    const std::string wanted = profile_named(name)["name"];
+    if (wanted == core::active_profile(config_)) {
+        refresh_profile();
+        save_config();
+    }
+    json out = profile_named(wanted);
+    out["wavemix_profile"] = core::kProfileFormat;
+    return out.dump(2) + "\n";
+}
+
+
+// ImportProfile: parses and cleans the profile, drops devices this PC doesn't have, and
+// stores it under a unique name, which it returns. It doesn't switch to it.
+std::string Mixer::import_profile(std::string_view text)
+{
+    require_connection();
+    const json raw = json::parse(text, nullptr, /*allow_exceptions=*/false);
+    auto profile = raw.is_discarded() ? std::nullopt : core::clean_profile(raw);
+    if (!profile)
+        throw failed("that isn't a WaveMix profile, or it's from a newer version of WaveMix");
+
+    // Devices this PC doesn't have: the system default, or no fallback.
+    const pw::Graph g = graph();
+    std::vector<std::string> outputs;
+    std::vector<std::string> inputs;
+    for (const pw::Node* sink : g.hardware_sinks())
+        outputs.push_back(sink->name());
+    for (const pw::Node* source : g.hardware_sources())
+        inputs.push_back(source->name());
+    core::match_devices(*profile, outputs, inputs);
+
+    std::string name = (*profile)["name"];
+    if (name.empty())
+        name = "Imported";
+    name = core::unique_profile_name(config_, name);
+    (*profile)["name"] = name;
+    config_["profiles"].push_back(std::move(*profile));
+    save_config();
+    log("imported the profile '" + name + "'");
+    return name;
 }
 
 // =====================================================================================
@@ -1054,11 +1311,17 @@ json Mixer::state()
     for (const auto& p : core::kPresets)
         presets.push_back({{"label", std::string(p.label)}, {"icon", std::string(p.icon)}});
 
+    // The profiles: the one in use, and every one's name, in the order they were made.
+    json profiles = {{"active", core::active_profile(config_)}, {"names", json::array()}};
+    for (const auto& profile : config_["profiles"])
+        profiles["names"].push_back(profile["name"]);
+
     const auto disconnected = [&] {
         return json{{"connected", false},    {"channels", json::array()},
                     {"unrouted_apps", json::array()}, {"outputs", json::array()},
                     {"settings", config_["settings"]}, {"presets", presets},
-                    {"assignments", config_["assignments"]}, {"version", version_}};
+                    {"assignments", config_["assignments"]}, {"profiles", profiles},
+                    {"version", version_}};
     };
     if (!session_)
         return disconnected();
@@ -1080,6 +1343,7 @@ json Mixer::state()
         entry["personal"] = level(g.link_stream(core::link_tag(id, core::Mix::Personal)));
         entry["stream"] = level(g.link_stream(core::link_tag(id, core::Mix::Stream)));
         entry["in_vod"] = core::in_vod(ch);
+        entry["enabled"] = core::channel_enabled(ch);
         entry["apps"] = json::array();
         for (const auto& app : all_apps)
             if (app["channel"] == id)
@@ -1116,6 +1380,7 @@ json Mixer::state()
         {"mic", mic_state(g)},
         {"settings", config_["settings"]},
         {"assignments", config_["assignments"]},
+        {"profiles", profiles},
         {"presets", presets},
         {"version", version_},
     };

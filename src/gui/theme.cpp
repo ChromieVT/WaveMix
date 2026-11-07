@@ -146,13 +146,13 @@ std::string theme_css()
 window.background { background-color: var(--wm-bg); color: var(--wm-text); }
 /* A popover is only its bubble (contents + arrow): its own surface stays clear. */
 popover.background { background-color: transparent; }
-/* A slim title bar: 32 px, with buttons to match. */
+/* The title bar: 48 px, room for text that reads easily, with buttons to match. */
 headerbar { background: var(--wm-surface); border-bottom: 1px solid var(--wm-border);
-            box-shadow: none; color: var(--wm-text); min-height: 32px; padding: 0 6px; margin: 0; }
+            box-shadow: none; color: var(--wm-text); min-height: 48px; padding: 0 8px; margin: 0; }
 headerbar > windowhandle > box { min-height: 0; padding-top: 0; padding-bottom: 0; }
-headerbar button, headerbar menubutton > button { min-height: 24px; min-width: 24px; padding: 0 4px; margin: 0; }
+headerbar button, headerbar menubutton > button { min-height: 32px; min-width: 32px; padding: 0 6px; margin: 0; }
 /* Adwaita spaces title bar buttons with margins above and below, which would make the
-   bar taller than 32 px. */
+   bar taller than 48 px. */
 headerbar > windowhandle > box > box > * { margin-top: 0; margin-bottom: 0; }
 headerbar .title { color: var(--wm-text); font-weight: bold; }
 
@@ -176,7 +176,8 @@ label { color: var(--wm-text); }
 .wm-column.wm-add { background-color: transparent; border: 1px dashed var(--wm-border); }
 .wm-title { font-weight: bold; font-size: 1.1em; }
 .wm-caption { font-size: 0.82em; color: var(--wm-text-dim); }
-.wm-header-title { font-weight: bold; }
+.wm-header-title { font-weight: bold; font-size: 1.1em; }
+.wm-profile-name { font-weight: bold; }
 .wm-header-version { font-size: 0.82em; color: var(--wm-text-dim); }
 .wm-about-name { font-size: 1.8em; font-weight: bold; }
 .wm-about-version { color: var(--wm-personal); font-weight: bold; padding: 4px 16px; border-radius: 9999px;

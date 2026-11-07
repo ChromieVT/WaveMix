@@ -14,6 +14,7 @@ core_lib = static_library('wavemix-core',
   'core/mic.cpp',
   'core/names.cpp',
   'core/paths.cpp',
+  'core/profiles.cpp',
   include_directories : top_inc,
   dependencies : json_dep,
 )

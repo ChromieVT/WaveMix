@@ -277,6 +277,17 @@ ChannelColumn::ChannelColumn(MixerWindow& window, const json& channel, int index
     append(*sliders);
     append(*footer_);
 
+    // Disabled: no devices, so nothing to move or hear. Only its menu still works, to
+    // enable it again.
+    if (!channel.value("enabled", true)) {
+        add_css_class("wm-disabled");
+        title->set_tooltip_text(str(channel["label"]) + " is disabled: enable it in its menu");
+        for (Gtk::Widget* part : std::initializer_list<Gtk::Widget*>{top_, sliders, footer_}) {
+            part->set_sensitive(false);
+            part->set_opacity(0.4);
+        }
+    }
+
     // At the bottom of every column, when the VOD Mix is on: whether the whole channel
     // goes to it. Green when it does, red when it's left out; a click switches.
     const json& settings = window_.state().value("settings", json::object());
@@ -304,6 +315,9 @@ Gtk::Popover* ChannelColumn::make_menu()
     auto* box = popover_box(*popover);
     const std::string id = str(channel_["id"]);
     menu_item(*popover, *box, "Rename…", [this] { window_.rename_channel(channel_); });
+    const bool enabled = channel_.value("enabled", true);
+    menu_item(*popover, *box, enabled ? "Disable channel" : "Enable channel",
+              [this, enabled] { window_.set_channel_enabled(channel_, !enabled); });
     box->append(*Gtk::make_managed<Gtk::Separator>());
     menu_item(*popover, *box, "Remove channel", [this] { window_.remove_channel(channel_); }, true, true);
     return popover;

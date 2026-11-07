@@ -13,6 +13,12 @@
       "start_minimized": true,
       "vod_enabled": false
     },
+    "profiles": {
+      "active": "Default",
+      "names": [
+        "Default"
+      ]
+    },
     "presets": [
       {
         "label": "System",

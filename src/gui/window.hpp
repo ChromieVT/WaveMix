@@ -53,6 +53,8 @@ public:
     void rename_channel(const core::json& channel);
     // Removes a channel, asking for confirmation first.
     void remove_channel(const core::json& channel);
+    // Enables or disables a channel, asking for confirmation before disabling it.
+    void set_channel_enabled(const core::json& channel, bool enabled);
     // A column was dragged onto another: moves the channel to that place.
     void drop_channel(const std::string& id, int position);
     // Asks where to save a bug report, then writes it.
@@ -71,6 +73,18 @@ private:
     Gtk::Grid& new_form(const std::string& title, Gtk::Widget* left = nullptr);
     // Opens the Preferences dialog.
     void open_preferences();
+    // The profiles menu, at the start of the title bar: the profile in use, the others
+    // to switch to, and saving, renaming, exporting, importing and deleting them.
+    Gtk::MenuButton* make_profiles_menu();
+    // Rebuilds the profiles menu from the latest state, each time it opens.
+    void fill_profiles_menu();
+    // Saves the profile in use to a file the user picks.
+    void export_profile();
+    // Imports a profile from a file the user picks, without switching to it.
+    void import_profile();
+    // A dialog with one text field: `on_ok` gets the text, trimmed, if it isn't empty.
+    void ask_text(const std::string& title, const std::string& initial, const std::string& note,
+                  const std::string& ok, std::function<void(const std::string&)> on_ok);
     // Opens the dialog with the names to pick in OBS.
     void open_obs_sources();
     // Opens the About window.
@@ -109,9 +123,9 @@ private:
     client::Client& client_;
     core::json state_ = core::json::object();
 
-    // What the columns were built from: (id, label, icon, in_vod) per channel. A change here
-    // means rebuilding the columns; anything else is just an update.
-    std::vector<std::tuple<std::string, std::string, std::string, bool>> structure_;
+    // What the columns were built from: (id, label, icon, in_vod, enabled) per channel. A
+    // change here means rebuilding the columns; anything else is just an update.
+    std::vector<std::tuple<std::string, std::string, std::string, bool, bool>> structure_;
     bool built_ = false;
     bool built_with_vod_ = false;  // whether the columns were built with VOD buttons
     bool built_with_mic_ = false;  // whether the daemon sent a mic when they were built
@@ -128,6 +142,9 @@ private:
     Gtk::Label message_;
     sigc::connection toast_timer_;
     OutputsPanel* outputs_ = nullptr;  // owned by outer_
+    Gtk::MenuButton* profiles_button_ = nullptr;
+    Gtk::Label* profile_label_ = nullptr;  // the profile in use, on the profiles menu button
+    Gtk::Popover* profiles_popover_ = nullptr;
     Gtk::Box body_{Gtk::Orientation::VERTICAL};
     sigc::connection refresh_pending_;
     std::pair<std::string, std::string> theme_shown_;  // the theme and custom file in use

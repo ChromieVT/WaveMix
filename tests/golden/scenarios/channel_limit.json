@@ -87,6 +87,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -104,6 +105,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -121,6 +123,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -138,6 +141,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -155,6 +159,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -172,6 +177,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -189,6 +195,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -206,6 +213,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -223,6 +231,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       },
       {
@@ -240,6 +249,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": []
       }
     ],
@@ -289,6 +299,12 @@
       "vod_enabled": false
     },
     "assignments": [],
+    "profiles": {
+      "active": "Default",
+      "names": [
+        "Default"
+      ]
+    },
     "presets": [
       {
         "label": "System",

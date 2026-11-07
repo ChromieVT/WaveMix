@@ -82,6 +82,7 @@
           "muted": false
         },
         "in_vod": true,
+        "enabled": true,
         "apps": [
           {
             "index": 1002,
@@ -111,6 +112,7 @@
           "muted": true
         },
         "in_vod": true,
+        "enabled": true,
         "apps": [
           {
             "index": 1001,
@@ -222,6 +224,12 @@
         "channel": "music"
       }
     ],
+    "profiles": {
+      "active": "Default",
+      "names": [
+        "Default"
+      ]
+    },
     "presets": [
       {
         "label": "System",

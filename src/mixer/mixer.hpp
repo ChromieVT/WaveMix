@@ -29,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -117,6 +118,9 @@ public:
     void forget_assignment(std::string_view app_key);
     // SetInVod: puts a channel in the VOD Mix or leaves it out.
     void set_in_vod(std::string_view channel, bool in_vod);
+    // SetChannelEnabled: turns a channel on or off; a disabled one keeps its place, name,
+    // levels and app routes, but has no sink or loopbacks.
+    void set_channel_enabled(std::string_view channel, bool enabled);
     // SetSetting: changes one of config.json's settings.
     void set_setting(std::string_view key, const core::json& value);
     // Back to a first run: no channels or routes, the default settings, an empty mic
@@ -146,6 +150,20 @@ public:
     // GetMeters: the meters' peaks since the last call (starting them if needed).
     core::json meters();
 
+    // Profiles (core/profiles.hpp). Names are matched without case.
+    // SwitchProfile: saves the live setup into its profile, then switches to `name`.
+    void switch_profile(std::string_view name);
+    // SaveProfileAs: the live setup, as a new profile in use.
+    void save_profile_as(std::string_view name);
+    // RenameProfile: renames a stored profile.
+    void rename_profile(std::string_view name, std::string_view new_name);
+    // DeleteProfile: deletes a profile; for the one in use, switches to another first.
+    void delete_profile(std::string_view name);
+    // ExportProfile: the export file's text.
+    std::string export_profile(std::string_view name);
+    // ImportProfile: stores a profile from a file's text and returns the name it was given.
+    std::string import_profile(std::string_view text);
+
 private:
     struct Session;  // everything that only exists while connected
 
@@ -172,6 +190,14 @@ private:
     core::json mic_state(const pw::Graph& graph) const;
     // Moves assigned apps' streams (all, or just one) into their channels.
     void route_apps(std::optional<uint64_t> only_stream = std::nullopt);
+    // Sends apps out of channels they aren't routed to.
+    void unroute_apps();
+    // Moves a channel's apps to a real output, except the app keys in `keep`.
+    void move_apps_out(std::string_view channel, const std::set<std::string>& keep = {});
+    // Brings the profile in use up to date with the live setup.
+    void refresh_profile();
+    // The stored profile called `name`; throws if there's none.
+    const core::json& profile_named(std::string_view name);
     // Rewrites the login file, logging rather than throwing on failure.
     void write_login_conf();
 

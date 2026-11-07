@@ -24,8 +24,7 @@ namespace {
 
 // The interface described in docs/contract/dbus.md. Clients depend on these exact
 // method names, argument names and types, so treat it as frozen: new features only
-// add methods (SetInVod came with the VOD Mix in 0.1.4, the SetMic... and
-// ...MicFilter... methods with the mic in 0.1.6, GetMeters in 0.1.7).
+// add methods.
 constexpr const char* kIntrospection = R"xml(
 <node>
   <interface name="io.github.ChromieVT.WaveMix.Daemon1">
@@ -63,6 +62,25 @@ constexpr const char* kIntrospection = R"xml(
     <method name="SetInVod">
       <arg type="s" name="channel" direction="in"/>
       <arg type="b" name="in_vod" direction="in"/>
+    </method>
+    <method name="SetChannelEnabled">
+      <arg type="s" name="channel" direction="in"/>
+      <arg type="b" name="enabled" direction="in"/>
+    </method>
+    <method name="SwitchProfile"><arg type="s" name="name" direction="in"/></method>
+    <method name="SaveProfileAs"><arg type="s" name="name" direction="in"/></method>
+    <method name="RenameProfile">
+      <arg type="s" name="name" direction="in"/>
+      <arg type="s" name="new_name" direction="in"/>
+    </method>
+    <method name="DeleteProfile"><arg type="s" name="name" direction="in"/></method>
+    <method name="ExportProfile">
+      <arg type="s" name="name" direction="in"/>
+      <arg type="s" name="json" direction="out"/>
+    </method>
+    <method name="ImportProfile">
+      <arg type="s" name="json" direction="in"/>
+      <arg type="s" name="name" direction="out"/>
     </method>
     <method name="SetSetting">
       <arg type="s" name="key" direction="in"/>
@@ -396,6 +414,28 @@ void Service::on_method(const std::string& method, GVariant* params, GDBusMethod
             gboolean in_vod = TRUE;
             g_variant_get(params, "(&sb)", &a, &in_vod);
             mixer_.set_in_vod(a, in_vod);
+        } else if (method == "SetChannelEnabled") {
+            gboolean enabled = TRUE;
+            g_variant_get(params, "(&sb)", &a, &enabled);
+            mixer_.set_channel_enabled(a, enabled);
+        } else if (method == "SwitchProfile") {
+            g_variant_get(params, "(&s)", &a);
+            mixer_.switch_profile(a);
+        } else if (method == "SaveProfileAs") {
+            g_variant_get(params, "(&s)", &a);
+            mixer_.save_profile_as(a);
+        } else if (method == "RenameProfile") {
+            g_variant_get(params, "(&s&s)", &a, &b);
+            mixer_.rename_profile(a, b);
+        } else if (method == "DeleteProfile") {
+            g_variant_get(params, "(&s)", &a);
+            mixer_.delete_profile(a);
+        } else if (method == "ExportProfile") {
+            g_variant_get(params, "(&s)", &a);
+            result = g_variant_new("(s)", mixer_.export_profile(a).c_str());
+        } else if (method == "ImportProfile") {
+            g_variant_get(params, "(&s)", &a);
+            result = g_variant_new("(s)", mixer_.import_profile(a).c_str());
         } else if (method == "SetMicInput") {
             g_variant_get(params, "(&s)", &a);
             mixer_.set_mic_input(a);

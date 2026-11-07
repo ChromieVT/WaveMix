@@ -2,8 +2,8 @@
 This document outlines the planned direction for the project. Items are grouped by status or planned version and are subject to change.
 
 ## 🚧 In Progress — (for v0.0.8-alpha)
-- [ ] **Fallback devices**
-- [ ] **Profiles**
+- [x] **Fallback devices**
+- [x] **Profiles**
 - [ ] **Initial setup**
 - [ ] **Notifications**
 - [ ] **Move everything to inside the service**
@@ -27,4 +27,4 @@ This document outlines the planned direction for the project. Items are grouped 
 - [ ] **Peak hold on meters**
 - [ ] **Slider linking**
 
-**Last updated:** 3 November 2026
+**Last updated:** 7 November 2026

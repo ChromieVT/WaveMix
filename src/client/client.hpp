@@ -63,6 +63,20 @@ public:
     void assign_app(uint32_t stream, const std::string& channel);
     // SetInVod: includes a channel in the VOD Mix or leaves it out.
     void set_in_vod(const std::string& channel, bool in_vod);
+    // SetChannelEnabled: turns a channel on or off; a disabled one keeps its settings.
+    void set_channel_enabled(const std::string& channel, bool enabled);
+    // SwitchProfile: saves the live setup into its profile, then switches to `name`.
+    void switch_profile(const std::string& name);
+    // SaveProfileAs: copies the live setup into a new profile and switches to it.
+    void save_profile_as(const std::string& name);
+    // RenameProfile: renames a stored profile.
+    void rename_profile(const std::string& name, const std::string& new_name);
+    // DeleteProfile: deletes a profile, switching to another first if it's the one in use.
+    void delete_profile(const std::string& name);
+    // ExportProfile: the export file's text for a profile.
+    std::string export_profile(const std::string& name);
+    // ImportProfile: stores the profile in a file's text and returns the name it was given.
+    std::string import_profile(const std::string& text);
     // SetSetting: changes one setting (the value travels JSON-encoded).
     void set_setting(const std::string& key, const core::json& value);
     // SetMicInput: picks the mic's input device ("default" or a source name).
