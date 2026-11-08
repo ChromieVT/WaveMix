@@ -1,0 +1,109 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Copyright (C) 2026 ChromieVT -->
+<!-- The WaveMix service's D-Bus interface. The service registers exactly this: the build
+     pastes it into the code (src/daemon/dbus_interface.hpp.in), so this is the only copy
+     to edit. Clients depend on these exact method names, argument names and types, so
+     treat it as frozen: new features only add methods. -->
+<node>
+  <interface name="io.github.ChromieVT.WaveMix.Daemon1">
+    <method name="GetState"><arg type="s" name="json" direction="out"/></method>
+    <method name="SetVolume">
+      <arg type="s" name="channel" direction="in"/>
+      <arg type="s" name="mix" direction="in"/>
+      <arg type="d" name="volume" direction="in"/>
+    </method>
+    <method name="SetMute">
+      <arg type="s" name="channel" direction="in"/>
+      <arg type="s" name="mix" direction="in"/>
+      <arg type="b" name="muted" direction="in"/>
+    </method>
+    <method name="AddChannel">
+      <arg type="s" name="label" direction="in"/>
+      <arg type="s" name="icon" direction="in"/>
+      <arg type="s" name="id" direction="out"/>
+    </method>
+    <method name="RemoveChannel"><arg type="s" name="id" direction="in"/></method>
+    <method name="RenameChannel">
+      <arg type="s" name="id" direction="in"/>
+      <arg type="s" name="label" direction="in"/>
+      <arg type="s" name="icon" direction="in"/>
+    </method>
+    <method name="MoveChannel">
+      <arg type="s" name="id" direction="in"/>
+      <arg type="i" name="position" direction="in"/>
+    </method>
+    <method name="AssignApp">
+      <arg type="u" name="stream" direction="in"/>
+      <arg type="s" name="channel" direction="in"/>
+    </method>
+    <method name="ForgetAssignment"><arg type="s" name="app" direction="in"/></method>
+    <method name="SetInVod">
+      <arg type="s" name="channel" direction="in"/>
+      <arg type="b" name="in_vod" direction="in"/>
+    </method>
+    <method name="SetChannelEnabled">
+      <arg type="s" name="channel" direction="in"/>
+      <arg type="b" name="enabled" direction="in"/>
+    </method>
+    <method name="SwitchProfile"><arg type="s" name="name" direction="in"/></method>
+    <method name="SaveProfileAs"><arg type="s" name="name" direction="in"/></method>
+    <method name="RenameProfile">
+      <arg type="s" name="name" direction="in"/>
+      <arg type="s" name="new_name" direction="in"/>
+    </method>
+    <method name="DeleteProfile"><arg type="s" name="name" direction="in"/></method>
+    <method name="ExportProfile">
+      <arg type="s" name="name" direction="in"/>
+      <arg type="s" name="json" direction="out"/>
+    </method>
+    <method name="ImportProfile">
+      <arg type="s" name="json" direction="in"/>
+      <arg type="s" name="name" direction="out"/>
+    </method>
+    <method name="SetSetting">
+      <arg type="s" name="key" direction="in"/>
+      <arg type="s" name="json_value" direction="in"/>
+    </method>
+    <method name="GetMeters"><arg type="s" name="json" direction="out"/></method>
+    <method name="SetMicInput"><arg type="s" name="device" direction="in"/></method>
+    <method name="SetMicEnabled"><arg type="b" name="enabled" direction="in"/></method>
+    <method name="SetMicVolume">
+      <arg type="s" name="slider" direction="in"/>
+      <arg type="d" name="volume" direction="in"/>
+    </method>
+    <method name="SetMicMute">
+      <arg type="s" name="slider" direction="in"/>
+      <arg type="b" name="muted" direction="in"/>
+    </method>
+    <method name="AddMicFilter">
+      <arg type="s" name="filter" direction="in"/>
+      <arg type="i" name="position" direction="in"/>
+      <arg type="i" name="added_at" direction="out"/>
+    </method>
+    <method name="RemoveMicFilter"><arg type="i" name="position" direction="in"/></method>
+    <method name="MoveMicFilter">
+      <arg type="i" name="from" direction="in"/>
+      <arg type="i" name="to" direction="in"/>
+    </method>
+    <method name="SetMicFilterOn">
+      <arg type="i" name="position" direction="in"/>
+      <arg type="b" name="on" direction="in"/>
+    </method>
+    <method name="SetMicFilterValue">
+      <arg type="i" name="position" direction="in"/>
+      <arg type="s" name="key" direction="in"/>
+      <arg type="d" name="value" direction="in"/>
+    </method>
+    <method name="NotificationAction">
+      <arg type="s" name="id" direction="in"/>
+      <arg type="s" name="action" direction="in"/>
+    </method>
+    <method name="DismissNotification"><arg type="s" name="id" direction="in"/></method>
+    <method name="SetWindowVisible"><arg type="b" name="visible" direction="in"/></method>
+    <method name="TestNotification"><arg type="b" name="desktop" direction="in"/></method>
+    <method name="Reset"/>
+    <method name="Restart"/>
+    <method name="Quit"/>
+    <signal name="StateChanged"/>
+  </interface>
+</node>

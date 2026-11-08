@@ -7,7 +7,7 @@
 //   ChannelColumn   one channel: title + menu, Personal and Stream sliders, its apps
 //     LevelControl  one slider with its % and mute button
 //   AddColumn       the "Add channel" button with the presets
-//   OutputsPanel    the Personal, Stream and VOD mix rows below the channels
+//   OutputsPanel    the Personal and Stream mix rows below the channels
 //
 // None of them change anything themselves: every action goes to the daemon through
 // the window, and the window redraws from the daemon's state.
@@ -41,8 +41,8 @@ public:
 
 class LevelControl : public Gtk::Box {
 public:
-    // `mix` is "personal", "stream" or "vod". Channel "" is a mix's master: the output
-    // device for "personal", the Stream or VOD Mix for the others. Vertical (a channel
+    // `mix` is "personal" or "stream". Channel "" is a mix's master: the Personal or
+    // Stream Mix sink (the VOD Mix follows the Stream Mix's). Vertical (a channel
     // column, with `caption` above) or horizontal (an output row, without one).
     LevelControl(MixerWindow& window, std::string channel, std::string mix, const std::string& caption,
                  Gtk::Orientation orientation = Gtk::Orientation::VERTICAL);
@@ -197,11 +197,11 @@ private:
 
 // The Outputs rows below the channels:
 //   Personal mix  where you hear your channels, and their master level (not the device's)
-//   Stream mix    what OBS records for the stream, and its master level
-//   VOD mix       the same for OBS's VOD track
+//   Stream mix    what OBS records for the stream, and its master level, which the
+//                 VOD Mix (OBS's VOD track) follows
 class OutputsPanel : public Gtk::Box {
 public:
-    // Builds the three output rows.
+    // Builds the two output rows.
     explicit OutputsPanel(MixerWindow& window);
 
     // Shows the latest levels and outputs from GetState.
@@ -216,13 +216,11 @@ private:
     MixerWindow& window_;
     LevelControl personal_;
     LevelControl stream_;
-    LevelControl vod_;
     Gtk::DropDown devices_;
     Glib::RefPtr<Gtk::SizeGroup> middles_ = Gtk::SizeGroup::create(Gtk::SizeGroup::Mode::HORIZONTAL);
     std::vector<std::string> device_ids_;  // what each entry of devices_ stands for
     std::string devices_shown_;            // the list devices_ was built from
     bool updating_ = false;                // true while we set devices_ from GetState
-    Gtk::Box* vod_row_ = nullptr;          // hidden while the VOD Mix is off
 };
 
 class AddColumn : public FixedWidthBox {

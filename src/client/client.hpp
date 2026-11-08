@@ -91,6 +91,12 @@ public:
     void move_mic_filter(int from, int to);
     // SetMicFilterOn: switches a filter on or off.
     void set_mic_filter_on(int position, bool on);
+    // NotificationAction: presses a notification's button.
+    void notification_action(const std::string& id, const std::string& action);
+    // DismissNotification: closes a notification without answering it.
+    void dismiss_notification(const std::string& id);
+    // TestNotification: shows the test notification, in the window or (`desktop`) on the desktop.
+    void test_notification(bool desktop);
     // Reset: every preference and all the configuration back to the defaults.
     void reset();
     // Restart: asks the daemon to restart itself.
@@ -111,7 +117,8 @@ public:
     void set_mic_mute(const std::string& slider, bool muted, ErrorHandler on_error = {});
     // SetMicFilterValue: one setting of a filter in the mic chain.
     void set_mic_filter_value(int position, const std::string& key, double value, ErrorHandler on_error = {});
-
+    // SetWindowVisible: tells the daemon whether a window is on screen to show notifications.
+    void set_window_visible(bool visible);
     // The mic's meters (GetMeters), sent without waiting: `on_reply` gets them on the main
     // loop, or nothing if the daemon didn't answer.
     void get_meters(std::function<void(const core::json&)> on_reply);

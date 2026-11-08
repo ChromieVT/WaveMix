@@ -31,6 +31,7 @@ json default_config()
              {"theme", "dark"},                // the window's built-in theme
              {"custom_theme", ""},             // a CSS file on top of it, or ""
              {"setup_done", false},            // the first-run setup was finished or skipped
+             {"muted_notifications", json::array()},  // notification kinds not to show again
          }},
     };
 }

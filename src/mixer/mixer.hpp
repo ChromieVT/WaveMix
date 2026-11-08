@@ -38,6 +38,7 @@
 #include "core/json_file.hpp"
 #include "core/mic.hpp"
 #include "core/names.hpp"
+#include "core/notifications.hpp"
 #include "core/paths.hpp"
 #include "pw/graph.hpp"
 
@@ -100,7 +101,8 @@ public:
 
     // GetState: everything a client shows, as JSON.
     core::json state();
-    // SetVolume: a channel's Personal or Stream slider, or a mix's master (channel "").
+    // SetVolume: a channel's Personal or Stream slider, or the Personal or Stream Mix's
+    // master (channel ""). Nothing in the VOD has a slider: it follows Stream.
     void set_volume(std::string_view channel, std::string_view mix, double volume);
     // SetMute: mutes or unmutes a channel's slider, or a mix's master (channel "").
     void set_mute(std::string_view channel, std::string_view mix, bool muted);
@@ -127,7 +129,7 @@ public:
     // chain, and every level that's left at 100% (the Monitor muted).
     void reset();
 
-    // The mic (added in 0.1.6). Filter positions count from 0, in the user's list.
+    // The mic. Filter positions count from 0, in the user's list.
 
     // SetMicInput: which input the mic chain reads ("default" or a source name).
     void set_mic_input(std::string_view device);
@@ -163,6 +165,28 @@ public:
     std::string export_profile(std::string_view name);
     // ImportProfile: stores a profile from a file's text and returns the name it was given.
     std::string import_profile(std::string_view text);
+
+    // Notifications (core/notifications.hpp). They don't need PipeWire.
+    // `raised` is called for each notification raised (or replaced), `gone` with the id
+    // of each one that went: answered, dismissed, muted or expired. The service uses
+    // them to keep the desktop's copies in step.
+    void on_notification(std::function<void(const core::Notification&)> raised,
+                         std::function<void(const std::string&)> gone);
+    // Raises a notification unless its kind is muted. True if it was raised.
+    bool notify(core::Notification notification);
+    // NotificationAction: a notification's button was pressed. Throws Failed for an
+    // unknown notification or button.
+    void notification_action(std::string_view id, std::string_view action);
+    // DismissNotification: closes a notification without answering it.
+    void dismiss_notification(std::string_view id);
+    // TestNotification: raises the test notification, a question with two buttons; on
+    // the desktop only, if `desktop`.
+    void test_notification(bool desktop = false);
+    // Removes information notifications shown long enough. True if any went.
+    bool expire_notifications();
+    // The notifications being shown, oldest first.
+    std::vector<core::Notification> notifications() const { return notifications_.all(); }
+
 
 private:
     struct Session;  // everything that only exists while connected
@@ -210,7 +234,8 @@ private:
     void apply_saved_levels();
     // The tags of every slider whose level is saved.
     std::vector<std::string> level_tags() const;
-    // Gives each VOD loopback its channel's Stream level and mute.
+    // Gives each VOD loopback its channel's Stream level and mute, and the VOD Mix the
+    // Stream Mix's.
     void sync_vod_levels();
     // Remembers a channel slider's new level (not saved yet: see save_at_).
     void remember(std::string_view channel, core::Mix mix, std::optional<double> volume,
@@ -227,7 +252,8 @@ private:
     const pw::Node* level_node(const pw::Graph& graph, std::string_view channel, core::Mix mix) const;
     // Checks a channel/mix pair from a client and returns the mix; throws if invalid.
     core::Mix check_level_target(std::string_view channel, std::string_view mix);
-    // The VOD loopback that follows a channel's Stream slider, or nullptr.
+    // What follows a Stream slider in the VOD (a channel's VOD loopback, or the VOD Mix
+    // for the master), or nullptr.
     const pw::Node* vod_follower(const pw::Graph& graph, std::string_view channel, core::Mix mix) const;
 
     // ---- Helpers ----------------------------------------------------------------------
@@ -287,6 +313,10 @@ private:
     std::optional<Clock::time_point> entries_loaded_;
     std::map<std::string, std::string> icons_;  // app -> icon
     static constexpr auto kEntriesMaxAge = std::chrono::seconds(30);
+
+    core::Notifications notifications_;
+    std::function<void(const core::Notification&)> notification_raised_;
+    std::function<void(const std::string&)> notification_gone_;
 };
 
 }  // namespace wavemix::mixer

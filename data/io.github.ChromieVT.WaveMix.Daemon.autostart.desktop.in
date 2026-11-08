@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=WaveMix service
-Comment=Routes apps into WaveMix channels and keeps their levels
+Comment=WaveMix audio routing service.
 Exec=@BINDIR@/wavemix --daemon --login
 Icon=io.github.ChromieVT.WaveMix
 NoDisplay=true

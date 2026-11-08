@@ -323,6 +323,24 @@ void Client::set_mic_filter_on(int position, bool on)
     call("SetMicFilterOn", g_variant_new("(ib)", position, on));
 }
 
+// Calls NotificationAction.
+void Client::notification_action(const std::string& id, const std::string& action)
+{
+    call("NotificationAction", g_variant_new("(ss)", id.c_str(), action.c_str()));
+}
+
+// Calls DismissNotification.
+void Client::dismiss_notification(const std::string& id)
+{
+    call("DismissNotification", g_variant_new("(s)", id.c_str()));
+}
+
+// Calls TestNotification.
+void Client::test_notification(bool desktop)
+{
+    call("TestNotification", g_variant_new("(b)", desktop));
+}
+
 // Calls Reset, with a longer timeout since it can remove many channels.
 void Client::reset()
 {
@@ -369,6 +387,12 @@ void Client::set_mic_mute(const std::string& slider, bool muted, ErrorHandler on
 void Client::set_mic_filter_value(int position, const std::string& key, double value, ErrorHandler on_error)
 {
     call_async("SetMicFilterValue", g_variant_new("(isd)", position, key.c_str(), value), std::move(on_error));
+}
+
+// Sends SetWindowVisible without waiting; an older daemon without it just ignores it.
+void Client::set_window_visible(bool visible)
+{
+    call_async("SetWindowVisible", g_variant_new("(b)", visible), {});
 }
 
 // Sends GetMeters without waiting and passes the parsed reply to `on_reply`.

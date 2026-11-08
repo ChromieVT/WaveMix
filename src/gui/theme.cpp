@@ -27,7 +27,7 @@ constexpr const char* kVariables[][2] = {
     {"--wm-surface-alt", "buttons, menus and popups"},
     {"--wm-border", "borders, and the scrollbars"},
     {"--wm-text", "text, and the slider knobs"},
-    {"--wm-text-dim", "captions and hints"},
+    {"--wm-text-dim", "captions and hints, the VOD buttons of channels left out and filters switched off"},
     {"--wm-personal", "everything about what you hear"},
     {"--wm-stream", "everything about what the stream hears"},
     {"--wm-danger", "muted, off, and warnings"},
@@ -186,14 +186,14 @@ label { color: var(--wm-text); }
 .wm-about-links { background-color: var(--wm-surface); border: 1px solid var(--wm-border); border-radius: 12px;
                   padding: 4px; }
 .wm-about-links > button { padding: 10px 12px; border-radius: 8px; }
-/* A channel's VOD button: green while the channel is in the VOD Mix, red when it's out. */
+/* A channel's VOD button: green while the channel is in the VOD Mix, grey when it's out. */
 button.wm-vod { font-size: 0.8em; font-weight: bold; padding: 2px 14px; border-radius: 9999px; }
 button.wm-vod-on { background-color: color-mix(in srgb, var(--wm-on) 22%, transparent); border-color: var(--wm-on);
                    color: var(--wm-on); }
-button.wm-vod-off { background-color: color-mix(in srgb, var(--wm-danger) 18%, transparent);
-                    border-color: var(--wm-danger); color: var(--wm-danger); }
+button.wm-vod-off { background-color: color-mix(in srgb, var(--wm-text-dim) 14%, transparent);
+                    border-color: var(--wm-text-dim); color: var(--wm-text-dim); }
 button.wm-vod-on:hover { background-color: color-mix(in srgb, var(--wm-on) 32%, transparent); }
-button.wm-vod-off:hover { background-color: color-mix(in srgb, var(--wm-danger) 28%, transparent); }
+button.wm-vod-off:hover { background-color: color-mix(in srgb, var(--wm-text-dim) 24%, transparent); }
 /* A column being dragged over: where it will land. */
 .wm-column:drop(active) { border-color: var(--wm-personal); box-shadow: inset 0 0 0 1px var(--wm-personal); }
 .wm-level { font-size: 0.9em; font-feature-settings: "tnum"; }
@@ -235,6 +235,20 @@ separator { background-color: var(--wm-border); }
 .wm-toast { background-color: var(--wm-surface-alt); border: 1px solid var(--wm-border); border-radius: 10px;
             padding: 8px 8px 8px 14px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
 
+/* Notifications: cards stacked over the bottom right of the window. The icon takes the
+   level's colour: blue for information (the Personal colour), amber for a warning, red
+   for an error. */
+.wm-notification { background-color: var(--wm-surface-alt); border: 1px solid var(--wm-border); border-radius: 10px;
+             padding: 10px 6px 12px 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
+.wm-notification-title { font-weight: bold; }
+.wm-notification-body { color: var(--wm-text); }
+.wm-notification-info .wm-notification-icon { color: var(--wm-personal); }
+.wm-notification-warning .wm-notification-icon { color: var(--wm-warning); }
+.wm-notification-error .wm-notification-icon { color: var(--wm-danger); }
+.wm-notification-error { border-color: color-mix(in srgb, var(--wm-danger) 50%, var(--wm-border)); }
+button.wm-notification-button { background-color: transparent; border: 1px solid var(--wm-border); padding: 4px 14px; }
+button.wm-notification-button:hover { background-color: color-mix(in srgb, var(--wm-hover) 8%, transparent); }
+
 /* A channel's apps: a strip of icons between the title and the sliders. */
 menubutton.wm-apps > button { background-color: var(--wm-bg); border: none; border-radius: 10px;
                               min-height: 44px; padding: 4px 8px; }
@@ -261,14 +275,16 @@ list.wm-filters-rows { background-color: var(--wm-bg); border: 1px solid var(--w
 list.wm-filters-rows > row { padding: 6px 8px; border-radius: 6px; }
 list.wm-filters-rows > row:selected { background-color: color-mix(in srgb, var(--wm-personal) 25%, transparent); }
 list.wm-filters-rows > row:drop(active) { box-shadow: inset 0 0 0 1px var(--wm-personal); }
-/* A filter's power button: green while it's on, red when it's off. */
+/* A filter's power button: green while it's on, grey when it's off. */
 button.wm-power { border-radius: 9999px; min-width: 20px; min-height: 20px; padding: 1px; -gtk-icon-size: 12px;
-                  background-color: color-mix(in srgb, var(--wm-danger) 18%, transparent);
-                  border-color: var(--wm-danger); color: var(--wm-danger); }
+                  background-color: color-mix(in srgb, var(--wm-text-dim) 14%, transparent);
+                  border-color: var(--wm-text-dim); color: var(--wm-text-dim); }
 button.wm-power:checked { background-color: color-mix(in srgb, var(--wm-on) 22%, transparent);
                           border-color: var(--wm-on); color: var(--wm-on); }
-button.wm-power:hover { background-color: color-mix(in srgb, var(--wm-danger) 28%, transparent); }
+button.wm-power:hover { background-color: color-mix(in srgb, var(--wm-text-dim) 24%, transparent); }
 button.wm-power:checked:hover { background-color: color-mix(in srgb, var(--wm-on) 32%, transparent); }
+/* A setting's value box beside its slider: compact, the numbers right-aligned. */
+entry.wm-value { min-height: 24px; padding: 0 6px; }
 .wm-filter-idle { opacity: 0.6; }
 .wm-filter-name { font-weight: bold; }
 .wm-filter-why { font-size: 0.82em; color: var(--wm-danger); }

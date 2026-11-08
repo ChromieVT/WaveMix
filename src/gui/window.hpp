@@ -23,6 +23,7 @@ namespace wavemix::gui {
 
 class ChannelColumn;
 class MicColumn;
+class NotificationStack;
 class OutputsPanel;
 
 class MixerWindow : public Gtk::ApplicationWindow {
@@ -101,6 +102,8 @@ private:
     void open_link(const std::string& url);
     // Adds the theme rows (built-in theme, custom CSS file) to a form.
     void add_theme_rows(Gtk::Grid& grid, int& row);
+    // Adds the Notifications row: the test buttons, and bringing back hidden kinds.
+    void add_notification_rows(Gtk::Grid& grid, int& row);
     // Adds a fallback device picker (output or mic) to a form, for the `key` setting.
     void add_fallback_row(Gtk::Grid& grid, int& row, const std::string& title, const std::string& key,
                           const core::json& devices);
@@ -150,6 +153,9 @@ private:
     Gtk::Label message_;
     sigc::connection toast_timer_;
     OutputsPanel* outputs_ = nullptr;  // owned by outer_
+    NotificationStack* notifications_ = nullptr;   // the notification cards, owned by overlay_
+    bool on_screen_ = false;           // what the service was last told (SetWindowVisible)
+    bool service_seen_ = false;        // the last GetState worked; a new service is told on_screen_
     Gtk::MenuButton* profiles_button_ = nullptr;
     Gtk::Label* profile_label_ = nullptr;  // the profile in use, on the profiles menu button
     Gtk::Popover* profiles_popover_ = nullptr;
@@ -162,6 +168,9 @@ private:
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // for replies after it's gone
     // Passes GetMeters' peaks on to the columns.
     void show_meters(const core::json& peaks);
+    // Tells the service whether the window is on screen (shown and not minimised), when
+    // that changes: it sends notifications to the desktop while it isn't.
+    void report_on_screen();
 
     // The dialog that's open, if any (rename or settings). Kept here so it lives as
     // long as it's shown.

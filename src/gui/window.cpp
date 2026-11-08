@@ -13,6 +13,7 @@
 #include "core/profiles.hpp"
 #include "report/bug_report.hpp"
 #include "gui/helpers.hpp"
+#include "gui/notifications.hpp"
 #include "gui/theme.hpp"
 #include "gui/widgets.hpp"
 
@@ -85,6 +86,8 @@ MixerWindow::MixerWindow(client::Client& client) : client_(client)
     outer_.append(*outputs_);
     overlay_.set_child(outer_);
     overlay_.add_overlay(toast_);
+    notifications_ = Gtk::make_managed<NotificationStack>(*this);
+    overlay_.add_overlay(*notifications_);
     set_child(overlay_);
 
     client_.on_changed([this] { queue_refresh(); });
@@ -104,6 +107,27 @@ MixerWindow::MixerWindow(client::Client& client) : client_(client)
             50);
     });
     signal_unmap().connect([this] { meter_timer_.disconnect(); });
+
+    // On screen or not, for where the service sends notifications. Minimising counts as
+    // off screen, so the window's surface is watched too once it exists.
+    signal_map().connect(sigc::mem_fun(*this, &MixerWindow::report_on_screen));
+    signal_unmap().connect(sigc::mem_fun(*this, &MixerWindow::report_on_screen));
+    signal_realize().connect([this] {
+        if (auto toplevel = std::dynamic_pointer_cast<Gdk::Toplevel>(get_surface()))
+            toplevel->property_state().signal_changed().connect(sigc::mem_fun(*this, &MixerWindow::report_on_screen));
+    });
+}
+
+// Works out whether the window is on screen and tells the service when that changed.
+void MixerWindow::report_on_screen()
+{
+    bool on_screen = get_mapped();
+    if (auto toplevel = std::dynamic_pointer_cast<Gdk::Toplevel>(get_surface()))
+        on_screen = on_screen && (toplevel->get_state() & Gdk::Toplevel::State::MINIMIZED) != Gdk::Toplevel::State::MINIMIZED;
+    if (on_screen == on_screen_)
+        return;
+    on_screen_ = on_screen;
+    client_.set_window_visible(on_screen);
 }
 
 // Stops callbacks and timers that could otherwise reach the window after it's gone.
@@ -111,6 +135,8 @@ MixerWindow::~MixerWindow()
 {
     *alive_ = false;  // replies still on their way find nobody
     meter_timer_.disconnect();
+    if (on_screen_)
+        client_.set_window_visible(false);
     client_.on_changed({});  // the client outlives the window: stop calling us
     refresh_pending_.disconnect();
 }
@@ -443,8 +469,15 @@ void MixerWindow::refresh()
     try {
         state_ = client_.state();
     } catch (const client::ClientError&) {
+        service_seen_ = false;
         show_message(kNotRunning);
         return;
+    }
+    if (!service_seen_) {
+        // A service that's just started (or restarted) doesn't know the window is open.
+        service_seen_ = true;
+        if (on_screen_)
+            client_.set_window_visible(true);
     }
 
     if (!state_.value("connected", false))
@@ -453,6 +486,7 @@ void MixerWindow::refresh()
              (message_.get_text() == kWaitingForPipeWire || message_.get_text() == kNotRunning))
         hide_message();  // that problem is over
     outputs_->update(state_);
+    notifications_->update(state_.value("notifications", json::array()));
     if (state_.contains("profiles"))
         profile_label_->set_text(str(state_["profiles"].value("active", json(""))));
     profiles_button_->set_visible(state_.contains("profiles"));  // not from a service before profiles
@@ -1077,6 +1111,7 @@ void MixerWindow::open_preferences()
     fallback_note->set_max_width_chars(52);
     grid.attach(*fallback_note, 0, row++, 2);
 
+    //add_notification_rows(grid, row);
     add_theme_rows(grid, row);
 
     auto* setup = Gtk::make_managed<Gtk::Button>("Run the setup again…");
@@ -1089,6 +1124,42 @@ void MixerWindow::open_preferences()
     grid.attach(*setup, 0, row++, 2);
 
     dialog_->present();
+}
+
+// Adds the Notifications row: test notifications (here, or on the desktop), and bringing
+// back the kinds hidden with "Don't show again".
+void MixerWindow::add_notification_rows(Gtk::Grid& grid, int& row)
+{
+    // Not from a service before notifications.
+    if (!state_.contains("notifications"))
+        return;
+    auto* label = make_label("Notifications", {}, 0.0F);
+    label->set_margin_top(8);
+    label->set_valign(Gtk::Align::START);
+    auto* buttons = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
+    buttons->set_margin_top(8);
+    auto* here = Gtk::make_managed<Gtk::Button>("Send a test");
+    here->set_tooltip_text("Shows a test notification in this window");
+    here->signal_clicked().connect([this] { call([&] { client_.test_notification(false); }); });
+    auto* desktop = Gtk::make_managed<Gtk::Button>("Test on the desktop");
+    desktop->set_tooltip_text("Sends a test notification to the desktop, as when the window is closed");
+    desktop->signal_clicked().connect([this] { call([&] { client_.test_notification(true); }); });
+    buttons->append(*here);
+    buttons->append(*desktop);
+    grid.attach(*label, 0, row);
+    grid.attach(*buttons, 1, row++);
+
+    const json muted = state_.value("settings", json::object()).value("muted_notifications", json::array());
+    if (muted.is_array() && !muted.empty()) {
+        auto* unmute = Gtk::make_managed<Gtk::Button>("Show hidden notifications again");
+        unmute->set_halign(Gtk::Align::START);
+        unmute->set_tooltip_text("Brings back every kind you chose not to see again");
+        unmute->signal_clicked().connect([this, unmute] {
+            call([&] { client_.set_setting("muted_notifications", json::array()); });
+            unmute->set_sensitive(false);
+        });
+        grid.attach(*unmute, 1, row++);
+    }
 }
 
 // Adds a fallback device row to a form: a picker of "No fallback" and the devices there

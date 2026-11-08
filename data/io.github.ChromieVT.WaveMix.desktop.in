@@ -2,7 +2,7 @@
 Type=Application
 Name=WaveMix
 GenericName=Audio Mixer
-Comment=Separate personal and stream volumes for your apps
+Comment=An audio mixer for streamers.
 Exec=@BINDIR@/wavemix
 Icon=io.github.ChromieVT.WaveMix
 Categories=AudioVideo;Audio;Mixer;

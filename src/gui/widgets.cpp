@@ -448,14 +448,13 @@ constexpr int kOutputsMiddle = 320;
 
 }  // namespace
 
-// Builds the Outputs panel: the Personal mix with its device list, the Stream mix and
-// the VOD mix, each with its master slider.
+// Builds the Outputs panel: the Personal mix with its device list and the Stream mix,
+// each with its master slider.
 OutputsPanel::OutputsPanel(MixerWindow& window)
     : Gtk::Box(Gtk::Orientation::VERTICAL, 6),
       window_(window),
       personal_(window, "", "personal", "", Gtk::Orientation::HORIZONTAL),
-      stream_(window, "", "stream", "", Gtk::Orientation::HORIZONTAL),
-      vod_(window, "", "vod", "", Gtk::Orientation::HORIZONTAL)
+      stream_(window, "", "stream", "", Gtk::Orientation::HORIZONTAL)
 {
     add_css_class("wm-outputs");
     append(*make_label("Outputs", {"wm-section"}, 0.0F));
@@ -505,9 +504,6 @@ OutputsPanel::OutputsPanel(MixerWindow& window)
     auto* stream_name = make_label(std::string(core::kMixLabel), {"wm-device"}, 0.0F);
     stream_name->set_tooltip_text("In OBS: an Audio Output Capture with this device");
     add_row("Stream mix", "media-record-symbolic", *stream_name, stream_);
-    auto* vod_name = make_label(std::string(core::kVodLabel), {"wm-device"}, 0.0F);
-    vod_name->set_tooltip_text("In OBS: a second Audio Output Capture with this device, on the VOD track only");
-    vod_row_ = add_row("VOD mix", "media-optical-symbolic", *vod_name, vod_);
 }
 
 // Adds one output row (icon, title, middle widget, slider) and returns it.
@@ -520,8 +516,8 @@ Gtk::Box* OutputsPanel::add_row(const std::string& title, const char* icon, Gtk:
     image->set_from_icon_name(icon);
     auto* name = make_label(title, {"wm-output-title"}, 0.0F);
     name->set_size_request(110, -1);
-    // The middles share one width (the device list's, usually), so the three sliders
-    // start at the same place.
+    // The middles share one width (the device list's, usually), so the sliders start at
+    // the same place.
     middles_->add_widget(middle);
     middle.set_size_request(kOutputsMiddle, -1);
     middle.set_valign(Gtk::Align::CENTER);
@@ -566,16 +562,16 @@ void OutputsPanel::fill_devices(const json& state)
     updating_ = false;
 }
 
-// Shows the device list, the three masters' levels and, while it's on, the VOD row.
+// Shows the device list and the two masters' levels.
 void OutputsPanel::update(const json& state)
 {
     fill_devices(state);
+
     // The Personal Mix's own level: muting it leaves apps that aren't routed playing.
     personal_.update(state.value("personal_mix", json()));
+
+    // With the VOD Mix on, this is its level too: the stream and the VOD always match.
     stream_.update(state.value("stream_mix", json()));
-    vod_.update(state.value("vod_mix", json()));
-    // Only there while the VOD Mix is turned on (Preferences).
-    vod_row_->set_visible(state.value("settings", json::object()).value("vod_enabled", false));
 }
 
 // =====================================================================================

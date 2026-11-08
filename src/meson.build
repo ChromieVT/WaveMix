@@ -13,6 +13,7 @@ core_lib = static_library('wavemix-core',
   'core/login_conf.cpp',
   'core/mic.cpp',
   'core/names.cpp',
+  'core/notifications.cpp',
   'core/paths.cpp',
   'core/profiles.cpp',
   include_directories : top_inc,
@@ -62,11 +63,24 @@ mixer_dep = declare_dependency(
   dependencies : [plumbing_dep],
 )
 
+# The D-Bus interface the service registers, from the one XML file that describes it
+# (the tests read it too). Meson re-reads it whenever it changes.
+fs = import('fs')
+interface_xml = configuration_data()
+interface_xml.set('INTROSPECTION_XML', fs.read('../data/io.github.ChromieVT.WaveMix.Daemon1.xml'))
+dbus_interface = configure_file(
+  input : 'daemon/dbus_interface.hpp.in',
+  output : 'dbus_interface.hpp',
+  configuration : interface_xml,
+)
+
 # daemon: the D-Bus service and the tray icon, on the GLib main loop.
 daemon_lib = static_library('wavemix-daemon',
   'daemon/autostart.cpp',
+  'daemon/notifier.cpp',
   'daemon/service.cpp',
   'daemon/tray.cpp',
+  dbus_interface,
   dependencies : [mixer_dep, gio_dep, gdk_pixbuf_dep],
 )
 daemon_dep = declare_dependency(
@@ -99,6 +113,7 @@ gui_lib = static_library('wavemix-gui',
   'gui/application.cpp',
   'gui/helpers.cpp',
   'gui/mic_column.cpp',
+  'gui/notifications.cpp',
   'gui/theme.cpp',
   'gui/widgets.cpp',
   'gui/window.cpp',

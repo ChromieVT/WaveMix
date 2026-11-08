@@ -14,115 +14,15 @@
 #include "core/names.hpp"
 #include "core/paths.hpp"
 #include "daemon/autostart.hpp"
+#include "daemon/notifier.hpp"
 #include "daemon/tray.hpp"
+#include "dbus_interface.hpp"  // kIntrospection, generated from data/
 
 namespace wavemix::daemon {
 
 using core::json;
 
 namespace {
-
-// The interface described in docs/contract/dbus.md. Clients depend on these exact
-// method names, argument names and types, so treat it as frozen: new features only
-// add methods.
-constexpr const char* kIntrospection = R"xml(
-<node>
-  <interface name="io.github.ChromieVT.WaveMix.Daemon1">
-    <method name="GetState"><arg type="s" name="json" direction="out"/></method>
-    <method name="SetVolume">
-      <arg type="s" name="channel" direction="in"/>
-      <arg type="s" name="mix" direction="in"/>
-      <arg type="d" name="volume" direction="in"/>
-    </method>
-    <method name="SetMute">
-      <arg type="s" name="channel" direction="in"/>
-      <arg type="s" name="mix" direction="in"/>
-      <arg type="b" name="muted" direction="in"/>
-    </method>
-    <method name="AddChannel">
-      <arg type="s" name="label" direction="in"/>
-      <arg type="s" name="icon" direction="in"/>
-      <arg type="s" name="id" direction="out"/>
-    </method>
-    <method name="RemoveChannel"><arg type="s" name="id" direction="in"/></method>
-    <method name="RenameChannel">
-      <arg type="s" name="id" direction="in"/>
-      <arg type="s" name="label" direction="in"/>
-      <arg type="s" name="icon" direction="in"/>
-    </method>
-    <method name="MoveChannel">
-      <arg type="s" name="id" direction="in"/>
-      <arg type="i" name="position" direction="in"/>
-    </method>
-    <method name="AssignApp">
-      <arg type="u" name="stream" direction="in"/>
-      <arg type="s" name="channel" direction="in"/>
-    </method>
-    <method name="ForgetAssignment"><arg type="s" name="app" direction="in"/></method>
-    <method name="SetInVod">
-      <arg type="s" name="channel" direction="in"/>
-      <arg type="b" name="in_vod" direction="in"/>
-    </method>
-    <method name="SetChannelEnabled">
-      <arg type="s" name="channel" direction="in"/>
-      <arg type="b" name="enabled" direction="in"/>
-    </method>
-    <method name="SwitchProfile"><arg type="s" name="name" direction="in"/></method>
-    <method name="SaveProfileAs"><arg type="s" name="name" direction="in"/></method>
-    <method name="RenameProfile">
-      <arg type="s" name="name" direction="in"/>
-      <arg type="s" name="new_name" direction="in"/>
-    </method>
-    <method name="DeleteProfile"><arg type="s" name="name" direction="in"/></method>
-    <method name="ExportProfile">
-      <arg type="s" name="name" direction="in"/>
-      <arg type="s" name="json" direction="out"/>
-    </method>
-    <method name="ImportProfile">
-      <arg type="s" name="json" direction="in"/>
-      <arg type="s" name="name" direction="out"/>
-    </method>
-    <method name="SetSetting">
-      <arg type="s" name="key" direction="in"/>
-      <arg type="s" name="json_value" direction="in"/>
-    </method>
-    <method name="GetMeters"><arg type="s" name="json" direction="out"/></method>
-    <method name="SetMicInput"><arg type="s" name="device" direction="in"/></method>
-    <method name="SetMicEnabled"><arg type="b" name="enabled" direction="in"/></method>
-    <method name="SetMicVolume">
-      <arg type="s" name="slider" direction="in"/>
-      <arg type="d" name="volume" direction="in"/>
-    </method>
-    <method name="SetMicMute">
-      <arg type="s" name="slider" direction="in"/>
-      <arg type="b" name="muted" direction="in"/>
-    </method>
-    <method name="AddMicFilter">
-      <arg type="s" name="filter" direction="in"/>
-      <arg type="i" name="position" direction="in"/>
-      <arg type="i" name="added_at" direction="out"/>
-    </method>
-    <method name="RemoveMicFilter"><arg type="i" name="position" direction="in"/></method>
-    <method name="MoveMicFilter">
-      <arg type="i" name="from" direction="in"/>
-      <arg type="i" name="to" direction="in"/>
-    </method>
-    <method name="SetMicFilterOn">
-      <arg type="i" name="position" direction="in"/>
-      <arg type="b" name="on" direction="in"/>
-    </method>
-    <method name="SetMicFilterValue">
-      <arg type="i" name="position" direction="in"/>
-      <arg type="s" name="key" direction="in"/>
-      <arg type="d" name="value" direction="in"/>
-    </method>
-    <method name="Reset"/>
-    <method name="Restart"/>
-    <method name="Quit"/>
-    <signal name="StateChanged"/>
-  </interface>
-</node>
-)xml";
 
 constexpr unsigned kPumpMs = 50;           // how often the mixer gets to handle events
 constexpr unsigned kSignalDelayMs = 60;    // StateChanged debounce
@@ -200,6 +100,12 @@ struct Service::Callbacks {
         return G_SOURCE_REMOVE;
     }
 
+    // The window's bus name went away: it closed (or crashed) without saying so.
+    static void window_gone(GDBusConnection*, const char*, gpointer data)
+    {
+        static_cast<Service*>(data)->set_window_visible(false);
+    }
+
     static inline const GDBusInterfaceVTable kVTable = {&method_call, nullptr, nullptr, {}};
 };
 
@@ -211,9 +117,13 @@ Service::Service(Options options)
 {
 }
 
-// Tears down in reverse order: tray, timer, D-Bus object, bus name, loop.
+// Tears down in reverse order: notifications, tray, timer, D-Bus object, bus name, loop.
 Service::~Service()
 {
+    mixer_.on_notification(nullptr, nullptr);
+    notifier_.reset();
+    if (window_watch_)
+        g_bus_unwatch_name(window_watch_);
     tray_.reset();
     if (signal_timer_)
         g_source_remove(signal_timer_);
@@ -274,6 +184,19 @@ void Service::on_name_acquired()
         options_.reported_version + ")");
     if (!tray_) {
         tray_ = std::make_unique<Tray>(bus_, [this] { restart(); }, [this] { quit(); });
+
+        notifier_ = std::make_unique<Notifier>(
+            bus_, [this](const std::string& id, const std::string& action) { desktop_action(id, action); },
+            [this](const std::string& id) {
+                mixer_.dismiss_notification(id);
+                changed();
+            });
+        mixer_.on_notification([this](const core::Notification& notification) { notification_raised(notification); },
+                         [this](const std::string& id) { notifier_->withdraw(id); });
+        window_watch_ = g_bus_watch_name_on_connection(bus_, std::string(core::kAppId).c_str(),
+                                                       G_BUS_NAME_WATCHER_FLAGS_NONE, nullptr,
+                                                       &Callbacks::window_gone, this, nullptr);
+
         const core::json settings = mixer_.state().value("settings", core::json::object());
         // The portal keeps the login entry's command line current; elsewhere the entry
         // is only written when the preference changes.
@@ -306,6 +229,8 @@ void Service::on_name_lost()
 // mixer poll, emitting StateChanged when something may have changed.
 bool Service::pump()
 {
+    if (mixer_.expire_notifications())  // with or without PipeWire
+        changed();
     if (!mixer_.connected()) {
         const int64_t now = g_get_monotonic_time();
         if (now >= next_connect_us_) {
@@ -483,6 +408,20 @@ void Service::on_method(const std::string& method, GVariant* params, GDBusMethod
             mixer_.set_setting(a, value);
             if (std::string_view(a) == "autostart" && value.is_boolean())
                 set_autostart(bus_, value.get<bool>());
+        } else if (method == "NotificationAction") {
+            g_variant_get(params, "(&s&s)", &a, &b);
+            mixer_.notification_action(a, b);
+        } else if (method == "DismissNotification") {
+            g_variant_get(params, "(&s)", &a);
+            mixer_.dismiss_notification(a);
+        } else if (method == "SetWindowVisible") {
+            gboolean visible = FALSE;
+            g_variant_get(params, "(b)", &visible);
+            set_window_visible(visible);
+        } else if (method == "TestNotification") {
+            gboolean desktop = FALSE;
+            g_variant_get(params, "(b)", &desktop);
+            mixer_.test_notification(desktop);
         } else if (method == "Reset") {
             mixer_.reset();
             set_autostart(bus_, core::default_config()["settings"]["autostart"].get<bool>());
@@ -496,6 +435,45 @@ void Service::on_method(const std::string& method, GVariant* params, GDBusMethod
         g_dbus_method_invocation_return_dbus_error(
             invocation, error_name(mixer::MixerError::Kind::Failed).c_str(), e.what());
     }
+}
+
+// =====================================================================================
+// Notifications
+// =====================================================================================
+
+// Sends the notification to the desktop when the window can't show it, or it's
+// desktop-only.
+void Service::notification_raised(const core::Notification& notification)
+{
+    if (notifier_ && (!window_visible_ || notification.desktop_only))
+        notifier_->send(notification);
+    changed();
+}
+
+// "default" opens the window; a button is answered as if it were pressed in the window.
+void Service::desktop_action(const std::string& id, const std::string& action)
+{
+    if (action == "default") {
+        open_mixer();
+        return;
+    }
+    try {
+        mixer_.notification_action(id, action);
+    } catch (const std::exception& e) {
+        log_error("notification " + id + ", button " + action + ": " + e.what());  // already answered, say
+    }
+    changed();
+}
+
+// Records whether the window is on screen; shown, it takes the notifications off the
+// desktop.
+void Service::set_window_visible(bool visible)
+{
+    if (visible && !window_visible_ && notifier_)
+        for (const auto& notification : mixer_.notifications())
+            if (!notification.desktop_only)  // those stay on the desktop
+                notifier_->withdraw(notification.id);
+    window_visible_ = visible;
 }
 
 // =====================================================================================

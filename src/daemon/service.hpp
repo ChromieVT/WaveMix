@@ -30,6 +30,7 @@ typedef struct _GVariant GVariant;
 
 namespace wavemix::daemon {
 
+class Notifier;
 class Tray;
 
 struct Options {
@@ -90,6 +91,16 @@ private:
     // Asks the mixer window, if one is open, to quit.
     void close_window();
 
+    // Notifications (core/notifications.hpp): sends a new one to the desktop unless the
+    // window is on screen to show it as a card (or it's desktop-only).
+    void notification_raised(const core::Notification& notification);
+    // A desktop notification's button, or "default" for the notification itself.
+    void desktop_action(const std::string& id, const std::string& action);
+    // The window said whether it's on screen. Shown, it takes the notifications over
+    // from the desktop.
+    void set_window_visible(bool visible);
+
+
     Options options_;
     mixer::Mixer mixer_;
     GMainLoop* loop_ = nullptr;
@@ -98,6 +109,9 @@ private:
     unsigned object_id_ = 0;
     unsigned signal_timer_ = 0;
     std::unique_ptr<Tray> tray_;
+    std::unique_ptr<Notifier> notifier_;
+    bool window_visible_ = false;   // a window is open on screen (SetWindowVisible)
+    unsigned window_watch_ = 0;     // watches for the window's process going away
     int exit_code_ = 0;
     int64_t next_connect_us_ = 0;  // when to retry PipeWire (monotonic microseconds)
 };

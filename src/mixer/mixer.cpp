@@ -582,25 +582,29 @@ void Mixer::apply_saved_levels()
     }
 }
 
-// Copies each channel's Stream level and mute onto its VOD loopback when they differ.
+// Copies each Stream level and mute onto what follows it in the VOD, when they differ.
 void Mixer::sync_vod_levels()
 {
-    // A VOD loopback has no slider of its own: it always has its channel's Stream level
-    // and mute. Most changes go through set_volume and set_mute, which set both at once;
-    // this catches the rest: a new VOD loopback, WirePlumber restoring an old level, or
-    // the Stream level changed in another app such as pavucontrol.
+    // Nothing in the VOD has a slider of its own: each VOD loopback has its channel's
+    // Stream level and mute, and the VOD Mix sink the Stream Mix's. Most changes go
+    // through set_volume and set_mute, which set both at once; this catches the rest: a
+    // new VOD loopback or VOD Mix, WirePlumber restoring an old level, or a Stream level
+    // changed in another app such as pavucontrol.
     const pw::Graph g = graph();
-    for (const auto& ch : config_["channels"]) {
-        const std::string id = string_field(ch, "id");
-        const pw::Node* stream = g.link_stream(core::link_tag(id, core::Mix::Stream));
-        const pw::Node* vod = g.link_stream(core::link_tag(id, core::Mix::Vod));
+    const auto follow = [&](const pw::Node* stream, const pw::Node* vod) {
         if (!stream || !vod || !stream->slider())
-            continue;
+            return;
         const auto vod_volume = vod->slider();
         if (!vod_volume || std::abs(*vod_volume - *stream->slider()) > 0.002)
             session_->registry->set_volume(vod->id, *stream->slider());
         if (vod->muted != stream->muted)
             session_->registry->set_mute(vod->id, stream->muted);
+    };
+
+    follow(g.sink_named(std::string(core::kMixSink)), g.sink_named(std::string(core::kVodSink)));
+    for (const auto& ch : config_["channels"]) {
+        const std::string id = string_field(ch, "id");
+        follow(g.link_stream(core::link_tag(id, core::Mix::Stream)), g.link_stream(core::link_tag(id, core::Mix::Vod)));
     }
 }
 
@@ -659,20 +663,20 @@ core::Mix Mixer::check_level_target(std::string_view channel, std::string_view m
     const auto parsed = core::parse_mix(mix);
     if (!parsed)
         throw failed("mix must be 'personal', 'stream' or 'vod', not '" + std::string(mix) + "'");
-    if (*parsed == core::Mix::Vod && !channel.empty())
-        throw failed("a channel's VOD level follows its Stream level; set 'stream' instead");
+    if (*parsed == core::Mix::Vod)
+        throw failed(channel.empty() ? "the VOD Mix's level follows the Stream Mix's; set 'stream' instead"
+                                     : "a channel's VOD level follows its Stream level; set 'stream' instead");
     return *parsed;
 }
 
 // The node behind a slider: a channel's loopback, or for channel "", a mix's own sink.
 const pw::Node* Mixer::level_node(const pw::Graph& g, std::string_view channel, core::Mix mix) const
 {
-    // Channel "" is a mix's master level: the Personal, Stream or VOD Mix sink itself,
-    // not a loopback.
+    // Channel "" is a mix's master level: the Personal or Stream Mix sink itself, not a
+    // loopback. (The VOD Mix's follows the Stream Mix's: see vod_follower.)
     if (channel.empty())
-        return g.sink_named(std::string(mix == core::Mix::Vod        ? core::kVodSink
-                                        : mix == core::Mix::Personal ? core::kPersonalSink
-                                                                     : core::kMixSink));
+        return g.sink_named(std::string(mix == core::Mix::Personal ? core::kPersonalSink : core::kMixSink));
+
     return g.link_stream(core::link_tag(channel, mix));
 }
 
@@ -711,12 +715,15 @@ void Mixer::set_mute(std::string_view channel, std::string_view mix, bool muted)
         session_->registry->set_mute(vod->id, muted);
 }
 
-// The VOD loopback that follows this slider: only a channel's Stream slider has one.
+// What follows this slider in the VOD: only Stream sliders have one.
 const pw::Node* Mixer::vod_follower(const pw::Graph& g, std::string_view channel, core::Mix mix) const
 {
-    // A channel's Stream slider also moves its VOD loopback, so both mixes always match.
-    if (channel.empty() || mix != core::Mix::Stream)
+    // A Stream slider also moves its VOD counterpart, so the stream and the VOD always
+    // sound the same: a channel's VOD loopback, or for the master, the VOD Mix sink.
+    if (mix != core::Mix::Stream)
         return nullptr;
+    if (channel.empty())
+        return g.sink_named(std::string(core::kVodSink));
     return g.link_stream(core::link_tag(channel, core::Mix::Vod));
 }
 
@@ -954,6 +961,12 @@ void Mixer::set_setting(std::string_view key, const json& value)
 
     settings[std::string(key)] = value;
     save_config();
+
+    if (key == "muted_notifications")  // the kinds just muted go at once
+        for (const auto& kind : core::muted_notification_kinds(config_))
+            for (const auto& id : notifications_.dismiss_kind(kind))
+                if (notification_gone_)
+                    notification_gone_(id);
 
     if (key == "personal_output" || key == "fallback_output" || key == "fallback_input") {
         reconcile();
@@ -1230,6 +1243,82 @@ std::string Mixer::import_profile(std::string_view text)
 }
 
 // =====================================================================================
+// Notifications (core/notifications.hpp)
+// =====================================================================================
+
+namespace {
+
+// The test notification's id and kind: there's only ever one.
+constexpr std::string_view kTestNotification = "test";
+
+}  // namespace
+
+// Stores the callbacks the service keeps the desktop in step with.
+void Mixer::on_notification(std::function<void(const core::Notification&)> raised,
+                            std::function<void(const std::string&)> gone)
+{
+    notification_raised_ = std::move(raised);
+    notification_gone_ = std::move(gone);
+}
+
+// Adds the notification (unless muted) and tells the service.
+bool Mixer::notify(core::Notification notification)
+{
+    if (!notifications_.raise(notification, core::muted_notification_kinds(config_)))
+        return false;
+    if (notification_raised_)
+        notification_raised_(notification);
+    return true;
+}
+
+// Runs what the button stands for, then closes the notification (unless that raised it
+// again).
+void Mixer::notification_action(std::string_view id, std::string_view action)
+{
+    const core::Notification* notification = notifications_.find(std::string(id));
+    if (!notification)
+        throw failed("no notification '" + std::string(id) + "'");
+    const auto& actions = notification->actions;
+    if (std::none_of(actions.begin(), actions.end(), [&](const core::NotificationAction& a) { return a.id == action; }))
+        throw failed("the notification '" + std::string(id) + "' has no button '" + std::string(action) + "'");
+    if (notification->kind == kTestNotification && action == "again") {
+        test_notification(notification->desktop_only);  // replaces this one, where it was
+        return;
+    }
+    dismiss_notification(id);
+}
+
+// Removes the notification and tells the service.
+void Mixer::dismiss_notification(std::string_view id)
+{
+    if (notifications_.dismiss(std::string(id)) && notification_gone_)
+        notification_gone_(std::string(id));
+}
+
+// Raises the test notification: what any question looks like, in the window or on the
+// desktop.
+void Mixer::test_notification(bool desktop)
+{
+    notify({std::string(kTestNotification),
+            std::string(kTestNotification),
+            core::NotificationLevel::Info,
+            "This is a test notification",
+            "WaveMix tells you about things here, and buttons like these let you choose what happens.",
+            {{"again", "Send another"}, {"ok", "Looks good"}},
+            desktop});
+}
+
+// Expires information notifications, telling the service about each.
+bool Mixer::expire_notifications()
+{
+    const auto gone = notifications_.expire();
+    if (notification_gone_)
+        for (const auto& id : gone)
+            notification_gone_(id);
+    return !gone.empty();
+}
+
+// =====================================================================================
 // GetState
 // =====================================================================================
 
@@ -1312,7 +1401,7 @@ json Mixer::state()
                     {"unrouted_apps", json::array()}, {"outputs", json::array()},
                     {"settings", config_["settings"]}, {"presets", presets},
                     {"assignments", config_["assignments"]}, {"profiles", profiles},
-                    {"version", version_}};
+                    {"notifications", notifications_.to_json()}, {"version", version_}};
     };
     if (!session_)
         return disconnected();
@@ -1373,6 +1462,7 @@ json Mixer::state()
         {"assignments", config_["assignments"]},
         {"profiles", profiles},
         {"presets", presets},
+        {"notifications", notifications_.to_json()},
         {"version", version_},
     };
 }

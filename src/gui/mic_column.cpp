@@ -9,6 +9,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <optional>
 
 #include "gui/helpers.hpp"
 #include "gui/widgets.hpp"
@@ -66,6 +68,23 @@ std::string format_value(double value, const std::string& unit, const std::strin
     else
         std::snprintf(text, sizeof text, "%.1f", value);
     return text;
+}
+
+// A value typed into a setting's box, in its unit: a number, with or without the unit
+// shown ("-12", "-12 dB", "50%", "3:1"); "k" multiplies Hz by 1000 ("1.5k", "1.5 kHz").
+// Nothing when it doesn't start with a number.
+std::optional<double> parse_value(const std::string& text, const std::string& unit)
+{
+    const char* start = text.c_str();
+    char* end = nullptr;
+    double value = std::strtod(start, &end);
+    if (end == start || !std::isfinite(value))
+        return std::nullopt;
+    while (*end == ' ')
+        ++end;
+    if (unit == "Hz" && (*end == 'k' || *end == 'K'))
+        value *= 1000;
+    return value;
 }
 
 // Why a filter in the chain isn't running, as the window says it; "" when it is, or
@@ -318,6 +337,24 @@ void MicColumn::open_filters()
         filters_window_->set_transient_for(window_);
         filters_window_->set_default_size(720, 480);
         filters_window_->set_hide_on_close(true);
+
+        // A click outside a setting's value box takes the focus from it, which tidies
+        // its value; clicks on what can't take the focus (labels, the background)
+        // otherwise leave the cursor in the box.
+        auto click = Gtk::GestureClick::create();
+        click->set_propagation_phase(Gtk::PropagationPhase::CAPTURE);
+        click->signal_pressed().connect([this](int, double x, double y) {
+            Gtk::Widget* focus = filters_window_->get_focus();
+            Gtk::Widget* box = focus;
+            while (box && !box->has_css_class("wm-value"))
+                box = box->get_parent();
+            if (!box)
+                return;
+            Gtk::Widget* clicked = filters_window_->pick(x, y);
+            if (clicked != box && !(clicked && clicked->is_ancestor(*box)))
+                filters_window_->unset_focus();
+        });
+        filters_window_->add_controller(click);
     }
     chain_shown_.clear();  // always up to date when it opens
     fill_filters();
@@ -494,7 +531,7 @@ Gtk::Widget* MicColumn::filter_row(const json& step, int position)
     text->append(*shrinkable(make_label(filter_name(filter), {"wm-filter-name"}, 0.0F)));
     if (const std::string why = why_not_short(step); !why.empty())
         text->append(*make_label(why, {"wm-filter-why"}, 0.0F));
-    // A power button: green while the filter is on, red when it's off.
+    // A power button: green while the filter is on, grey when it's off.
     auto* power = Gtk::make_managed<Gtk::ToggleButton>();
     power->set_icon_name("system-shutdown-symbolic");
     power->add_css_class("wm-power");
@@ -636,15 +673,61 @@ Gtk::Widget* MicColumn::control_row(const json& control, double value, int posit
     scale->add_css_class("wm-personal");
     scale->set_tooltip_text(control_name(key));
     scroll_page_not_slider(*scale, page);
-    auto* shown = make_label(format_value(value, unit, key), {"wm-level"}, 1.0F);
-    shown->set_width_chars(9);
-    adjustment->signal_value_changed().connect([this, adjustment, shown, from_slider, unit, key, position] {
-        const double now = from_slider(adjustment->get_value());
-        shown->set_text(format_value(now, unit, key));
+    // The value in a box: it follows the slider, and the slider follows what's typed,
+    // as it's typed.
+    auto* shown = Gtk::make_managed<Gtk::Entry>();
+    shown->add_css_class("wm-level");
+    shown->add_css_class("wm-value");
+    shown->set_text(format_value(value, unit, key));
+    shown->set_width_chars(7);
+    shown->set_max_width_chars(7);
+    shown->set_alignment(1.0F);
+    shown->set_valign(Gtk::Align::CENTER);
+    shown->set_tooltip_text("Type a value: the slider follows");
+    // Which way a change is going, so neither side answers the other: the slider
+    // doesn't rewrite the text under the cursor, and the tidied text ("1.2 kHz", rounded)
+    // doesn't move the slider.
+    struct Sync {
+        bool typing = false;
+        bool tidying = false;
+    };
+    auto sync = std::make_shared<Sync>();
+    const auto tidy = [adjustment, shown, sync, from_slider, unit, key] {
+        sync->tidying = true;
+        shown->set_text(format_value(from_slider(adjustment->get_value()), unit, key));
+        sync->tidying = false;
+    };
+    adjustment->signal_value_changed().connect([this, adjustment, sync, tidy, from_slider, key, position] {
+        if (!sync->typing)
+            tidy();
         // Live, without waiting: the daemon sets it on the running filter.
-        window_.client().set_mic_filter_value(position, key, now,
+        window_.client().set_mic_filter_value(position, key, from_slider(adjustment->get_value()),
                                               [this](const std::string& error) { window_.show_error(error); });
     });
+
+    // Each change to the text moves the slider, kept within its range; text that isn't
+    // (yet) a number, such as "-", leaves it where it is.
+    shown->signal_changed().connect([adjustment, shown, sync, to_slider, min, max, unit] {
+        if (sync->tidying)
+            return;
+        const auto typed = parse_value(shown->get_text(), unit);
+        if (!typed)
+            return;
+        sync->typing = true;
+        adjustment->set_value(to_slider(std::clamp(*typed, min, max)));
+        sync->typing = false;
+    });
+    // Enter, or leaving the box, shows the value as the slider has it: in its unit,
+    // within the range, or back as it was if what's typed isn't a number.
+    shown->signal_activate().connect([this, tidy] {
+        tidy();
+        if (filters_window_)
+            filters_window_->unset_focus();
+    });
+    auto focus = Gtk::EventControllerFocus::create();
+    focus->signal_leave().connect(tidy);
+    shown->add_controller(focus);
+
     row->append(*name);
     row->append(*scale);
     row->append(*shown);

@@ -14,7 +14,7 @@
   --wm-surface-alt: #181818;  /* buttons, menus and popups */
   --wm-border: #2d2d2d;  /* borders, and the scrollbars */
   --wm-text: #ffffff;  /* text, and the slider knobs */
-  --wm-text-dim: #8b929e;  /* captions and hints */
+  --wm-text-dim: #8b929e;  /* captions and hints, and the VOD buttons of channels left out */
   --wm-personal: #646464;  /* everything about what you hear */
   --wm-stream: #646464;  /* everything about what the stream hears */
   --wm-danger: #ff5c6c;  /* muted, off, and warnings */
