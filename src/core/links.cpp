@@ -4,7 +4,6 @@
 #include "core/links.hpp"
 
 #include "core/config.hpp"
-#include "core/login_conf.hpp"
 #include "core/mic.hpp"
 
 namespace wavemix::core {
@@ -60,8 +59,8 @@ std::string module_args(std::string_view description, std::string_view position,
            " ] capture.props = " + props_block(capture) + " playback.props = " + props_block(playback) + " }";
 }
 
-// A loopback between two of WaveMix's sinks, wherever it runs: the channels' to the
-// mixes (`mix` set) and the Personal Mix's to the output (`mix` empty).
+// A loopback between two of WaveMix's sinks: a channel's to a mix (`mix` set), or the
+// Personal Mix's to the output (`mix` empty).
 struct Route {
     std::string tag;
     std::string from;
@@ -70,8 +69,7 @@ struct Route {
     std::optional<Mix> mix;
 };
 
-// Every loopback `config` calls for (each channel's to its mixes, then "personal:out"),
-// independent of whether the service or pipewire-pulse will run it.
+// Every loopback `config` calls for: each channel's to its mixes, then "personal:out".
 std::vector<Route> routes(const json& config, const std::optional<std::string>& personal_output)
 {
     std::vector<Route> out;
@@ -153,15 +151,13 @@ std::vector<LinkSpec> wanted_links(const json& config, const std::optional<std::
 {
     const bool mic = mic_enabled(config);
     std::vector<LinkSpec> links;
-    if (!pulse_routing(config)) {
-        for (const auto& route : routes(config, personal_output)) {
-            if (route.mix)
-                links.push_back({route.tag, link_module_args(route.channel, *route.mix, route.to), route.from,
-                                 route.to, link_node_name(route.channel, *route.mix) + "_in"});
-            else
-                links.push_back({route.tag, personal_out_module_args(route.to), route.from, route.to,
-                                 std::string(kPersonalSink) + "_out_in"});
-        }
+    for (const auto& route : routes(config, personal_output)) {
+        if (route.mix)
+            links.push_back({route.tag, link_module_args(route.channel, *route.mix, route.to), route.from,
+                             route.to, link_node_name(route.channel, *route.mix) + "_in"});
+        else
+            links.push_back({route.tag, personal_out_module_args(route.to), route.from, route.to,
+                             std::string(kPersonalSink) + "_out_in"});
     }
     if (mic)
         links.push_back({std::string(kMicMonitorTag), mic_monitor_module_args(), std::string(kMicSource),
@@ -176,62 +172,6 @@ std::vector<LinkSpec> wanted_links(const json& config, const std::optional<std::
         links.push_back({std::string(kMicChainTag), std::move(args), mic_plan->input, std::string(kMicFeedSink),
                          std::string(kMicChainNode) + "_in", std::move(module), std::move(fallback)});
     }
-    return links;
-}
-
-// The module-loopback arguments for a channel's loopback when pipewire-pulse runs it.
-std::string pulse_link_args(std::string_view channel_id, Mix mix, std::string_view destination)
-{
-    // The playback side carries the slider (its volume *is* the slider's level), and
-    // stays on its mix sink, whatever WirePlumber thinks.
-    const PropList playback{
-        {"node.name", link_node_name(channel_id, mix)},
-        {"media.name", link_media_name(channel_id, mix)},
-        {"wavemix.link", link_tag(channel_id, mix)},
-        {"node.dont-reconnect", "true"},
-    };
-    // The capture side just reads the channel's monitor. "Passive" means it doesn't keep
-    // the channel sink awake when nothing is playing.
-    const PropList capture{
-        {"node.name", link_node_name(channel_id, mix) + "_in"},
-        {"node.passive", "true"},
-    };
-    return "source=" + base_sink(channel_id) + ".monitor sink=" + std::string(destination) +
-           " latency_msec=20 source_dont_move=true sink_input_properties=\"" + pa_props(playback) +
-           "\" source_output_properties=\"" + pa_props(capture) + "\"";
-}
-
-// The module-loopback arguments for "personal:out" when pipewire-pulse runs it.
-std::string pulse_personal_out_args(std::string_view output)
-{
-    const PropList playback{
-        {"node.name", std::string(kPersonalSink) + "_out"},
-        {"media.name", std::string(kPersonalLabel)},
-        {"wavemix.link", std::string(kPersonalOutTag)},
-        // If the output device disappears, go quiet rather than suddenly playing the
-        // Personal mix through some other device.
-        {"node.dont-fallback", "true"},
-    };
-    const PropList capture{
-        {"node.name", std::string(kPersonalSink) + "_out_in"},
-        {"node.passive", "true"},
-    };
-    return "source=" + std::string(kPersonalSink) + ".monitor sink=" + std::string(output) +
-           " latency_msec=20 source_dont_move=true sink_input_properties=\"" + pa_props(playback) +
-           "\" source_output_properties=\"" + pa_props(capture) + "\"";
-}
-
-// Lists the loopbacks pipewire-pulse should run; empty unless "pulse_routing" is on.
-std::vector<PulseLink> wanted_pulse_links(const json& config, const std::optional<std::string>& personal_output)
-{
-    std::vector<PulseLink> links;
-    if (!pulse_routing(config))
-        return links;
-    for (const auto& route : routes(config, personal_output))
-        links.push_back({route.tag,
-                         route.mix ? pulse_link_args(route.channel, *route.mix, route.to)
-                                   : pulse_personal_out_args(route.to),
-                         route.from, route.to});
     return links;
 }
 

@@ -17,7 +17,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false
@@ -45,7 +44,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false
@@ -75,7 +73,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false
@@ -105,7 +102,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false
@@ -141,7 +137,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false
@@ -171,7 +166,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false
@@ -204,7 +198,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false
@@ -234,7 +227,6 @@
           "autostart": true,
           "start_minimized": true,
           "vod_enabled": false,
-          "pulse_routing": false,
           "theme": "dark",
           "custom_theme": "",
           "setup_done": false

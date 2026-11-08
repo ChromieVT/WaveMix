@@ -102,7 +102,7 @@ struct Mixer::Session {
     std::unique_ptr<plumbing::PulsePlumbing> plumbing;  // the devices, in pipewire-pulse
     std::unique_ptr<plumbing::ServiceLinks> links;      // the loopbacks, in this process
     std::unique_ptr<plumbing::Meters> meters;           // the mic's meters, while asked for
-    bool pulse_links_cleared = false;  // none of the channels' loopbacks left in pipewire-pulse
+    bool pulse_loopbacks_cleared = false;  // none of ours left in pipewire-pulse
 };
 
 // Loads config.json and state.json; PipeWire comes later, in connect().
@@ -321,7 +321,7 @@ void Mixer::reconcile()
     for (const auto& line : session_->plumbing->ensure(running))
         log("created " + line);
     reconcile_mic();
-    sync_pulse_links();
+    clear_pulse_loopbacks();
     sync_links();
     apply_mic_controls(graph());
     apply_saved_levels();
@@ -340,24 +340,19 @@ void Mixer::sync_links()
         log(line);
 }
 
-// Keeps pipewire-pulse's loopbacks in line with "pulse_routing" (see the comment below).
-void Mixer::sync_pulse_links()
+// Removes our loopbacks from pipewire-pulse, once per connection.
+void Mixer::clear_pulse_loopbacks()
 {
-    // With "pulse_routing" on, pipewire-pulse runs the channels' loopbacks and the
-    // Personal Mix's to the output, and the login file has them, for the output device of
-    // the moment. Off, this clears out any there (from before it was turned off), once
-    // per connection: nothing else puts them there.
-    const bool on = core::pulse_routing(config_);
-    if (!on && session_->pulse_links_cleared)
+    // WaveMix could once run the channels' loopbacks in pipewire-pulse, so they kept
+    // playing without the service. Any still loaded there would play next to the
+    // service's own; nothing puts them there now, so once per connection is enough.
+    if (session_->pulse_loopbacks_cleared)
         return;
-    const pw::Graph g = graph();
-    const auto output = resolve_personal_output(g);
-    for (const auto& line :
-         session_->plumbing->sync_loopbacks(core::wanted_pulse_links(core::running_config(config_), output)))
+
+    for (const auto& line : session_->plumbing->remove_loopbacks())
         log(line);
-    session_->pulse_links_cleared = !on;
-    if (on)
-        write_login_conf();
+
+    session_->pulse_loopbacks_cleared = true;
 }
 
 // Creates WaveMix Mic's devices while the mic is on, and removes them when it's off.
@@ -507,11 +502,7 @@ void Mixer::write_login_conf()
     // Keep the file at login in step with the config. If this fails, the live devices
     // still work; they just won't come back at the next login.
     try {
-        // With "pulse_routing" on, the file has the Personal Mix's loopback to the output.
-        std::optional<std::string> output;
-        if (session_ && core::pulse_routing(config_))
-            output = resolve_personal_output(graph());
-        core::write_login_conf(paths_, core::running_config(config_), output);
+        core::write_login_conf(paths_, core::running_config(config_));
     } catch (const std::system_error& e) {
         log_error("could not write " + paths_.login_conf.string() + ": " + e.what());
     }
@@ -957,19 +948,18 @@ void Mixer::set_setting(std::string_view key, const json& value)
 {
     require_connection();
     auto& settings = config_["settings"];
+
     if (!settings.contains(std::string(key)))
         throw failed("unknown setting '" + std::string(key) + "'");
+
     settings[std::string(key)] = value;
     save_config();
+
     if (key == "personal_output" || key == "fallback_output" || key == "fallback_input") {
         reconcile();
         write_login_conf();
     }
-    if (key == "pulse_routing") {
-        // The loopbacks move over: the ones where they ran go, and the others load.
-        reconcile();
-        write_login_conf();
-    }
+
     if (key == "vod_enabled") {
         // Off: the VOD Mix device and every VOD loopback go, so OBS no longer lists it
         // and they cost no open files. On: reconcile creates them again, for the

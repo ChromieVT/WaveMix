@@ -7,15 +7,13 @@
 // starts (at login), it runs the "pulse.cmd" list in this file and creates every
 // channel sink, the mixes and WaveMix Mic by itself, so apps and OBS always find
 // them. The loopbacks between them run in the WaveMix service: while it isn't running,
-// everything stays where it is, quiet. (With "pulse_routing" on, the channels' loopbacks
-// are in this file too, and keep playing.)
+// everything stays where it is, quiet.
 //
 // The service creates the same modules live, with the same arguments, so an object
 // created either way looks identical and can be removed the same way.
 
 #pragma once
 
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -41,14 +39,11 @@ std::string sink_args(std::string_view sink_name, std::string_view description,
                       std::string_view channel_id);
 
 // The complete file for `config`: the devices, WaveMix Mic last while the mic is on.
-// The loopbacks between them and the mic chain are the service's, unless
-// "pulse_routing" is on: then the channels' loopbacks follow, and the Personal Mix's to
-// `personal_output` (core/links.hpp).
-std::string render_login_conf(const json& config, const std::optional<std::string>& personal_output = std::nullopt);
+// The loopbacks between them and the mic chain are the service's (core/links.hpp).
+std::string render_login_conf(const json& config);
 
 // Writes the login file (atomically), if it's changed. Throws std::system_error on
 // failure.
-void write_login_conf(const Paths& paths, const json& config,
-                      const std::optional<std::string>& personal_output = std::nullopt);
+void write_login_conf(const Paths& paths, const json& config);
 
 }  // namespace wavemix::core

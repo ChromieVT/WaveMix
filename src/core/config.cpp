@@ -28,7 +28,6 @@ json default_config()
              {"autostart", true},              // the service starts at login
              {"start_minimized", true},        // at login, only the tray icon (no window)
              {"vod_enabled", false},           // the VOD Mix for OBS's VOD track
-             {"pulse_routing", false},         // the channels' loopbacks in pipewire-pulse
              {"theme", "dark"},                // the window's built-in theme
              {"custom_theme", ""},             // a CSS file on top of it, or ""
              {"setup_done", false},            // the first-run setup was finished or skipped
@@ -74,16 +73,6 @@ bool vod_enabled(const json& config)
     return it != settings->end() && it->is_boolean() && it->get<bool>();
 }
 
-// Reads settings "pulse_routing"; anything but a true boolean counts as off.
-bool pulse_routing(const json& config)
-{
-    const auto settings = config.find("settings");
-    if (settings == config.end() || !settings->is_object())
-        return false;
-    const auto it = settings->find("pulse_routing");
-    return it != settings->end() && it->is_boolean() && it->get<bool>();
-}
-
 // A channel gets a VOD loopback only when the VOD Mix is on and the channel is in it.
 bool wants_vod_link(const json& config, const json& channel)
 {
@@ -110,6 +99,9 @@ json load_config(const Paths& paths)
     // defaults, so the daemon always comes up.
     if (!config["settings"].is_object())
         config["settings"] = default_config()["settings"];
+
+    // A setting WaveMix no longer has: the channels' loopbacks always run in the service.
+    config["settings"].erase("pulse_routing");
 
     return config;
 }

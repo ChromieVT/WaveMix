@@ -8,8 +8,7 @@
 //   - live, by this class, when the user adds a channel or something is missing.
 // Because pipewire-pulse owns them either way, apps and OBS always find them, whether
 // or not the WaveMix service is running. The loopbacks between them are the service's
-// (plumbing/service_links.hpp), unless "pulse_routing" is on: then the channels' are
-// pipewire-pulse's too (sync_loopbacks).
+// (plumbing/service_links.hpp).
 //
 // This class only creates and removes devices. It reads the current state from the
 // PipeWire registry, and uses libpulse (PulseControl) to load and unload modules.
@@ -64,11 +63,10 @@ public:
     // Removes the VOD Mix sink: the VOD Mix was turned off.
     void remove_vod();
 
-    // Keeps pipewire-pulse's loopbacks to `wanted` (core::wanted_pulse_links): unloads
-    // the ones it doesn't have, or has with other arguments (the output device changed),
-    // and loads the missing ones once both their sinks exist. Empty, it clears out every
-    // one: the service runs them (`pulse_routing` off). Returns a line per change.
-    std::vector<std::string> sync_loopbacks(const std::vector<core::PulseLink>& wanted);
+    // Unloads every loopback of ours that pipewire-pulse runs: left from a WaveMix that
+    // could run the channels' loopbacks there, so they'd play twice next to the
+    // service's. Returns a line per loopback removed.
+    std::vector<std::string> remove_loopbacks();
 
 private:
     // Re-reads the graph until `ready` is true for it, or ~2 seconds pass. Needed after

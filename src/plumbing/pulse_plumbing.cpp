@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <set>
 #include <thread>
 
 #include "core/config.hpp"
@@ -118,33 +117,23 @@ void PulsePlumbing::remove_personal()
     unload_matching({"sink_name=" + std::string(core::kPersonalSink) + " "});
 }
 
-// Unloads pipewire-pulse loopbacks of ours that aren't wanted (or changed, or are
-// duplicates), then loads the wanted ones that are missing and whose sinks exist.
-std::vector<std::string> PulsePlumbing::sync_loopbacks(const std::vector<core::PulseLink>& wanted)
+// Unloads each module-loopback whose arguments carry a wavemix.link tag.
+std::vector<std::string> PulsePlumbing::remove_loopbacks()
 {
     std::vector<std::string> lines;
-    std::set<std::string> kept;
+
     for (const auto& module : pulse_.list()) {
         if (module.name != "module-loopback")
             continue;
+
         const std::string tag = link_tag_in(module.argument);
         if (tag.empty())
             continue;  // not one of ours
-        const auto want = std::find_if(wanted.begin(), wanted.end(),
-                                       [&](const core::PulseLink& link) { return link.tag == tag; });
-        if (want != wanted.end() && want->args == module.argument && kept.insert(tag).second)
-            continue;
+
         pulse_.unload(module.index);
         lines.push_back("removed pipewire-pulse's loopback " + tag);
     }
 
-    const pw::Graph graph = wait_for([](const pw::Graph&) { return true; });
-    for (const auto& link : wanted) {
-        if (kept.contains(link.tag) || !graph.sink_named(link.from) || !graph.sink_named(link.to))
-            continue;
-        pulse_.load("module-loopback", link.args);
-        lines.push_back("loopback " + link.tag + " -> " + link.to + " (in pipewire-pulse)");
-    }
     return lines;
 }
 

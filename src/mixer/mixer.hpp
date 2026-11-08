@@ -174,8 +174,8 @@ private:
     void reconcile();
     // Creates or removes WaveMix Mic's devices, following the "enabled" flag.
     void reconcile_mic();
-    // Keeps pipewire-pulse's loopbacks in line with the "pulse_routing" setting.
-    void sync_pulse_links();
+    // Removes any of our loopbacks left in pipewire-pulse, once per connection.
+    void clear_pulse_loopbacks();
     // Loads, reloads or unloads the service's loopbacks to match the config.
     void sync_links();
     // The input the mic chain should read, or nothing if there's none.

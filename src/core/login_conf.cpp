@@ -8,7 +8,6 @@
 #include <system_error>
 
 #include "core/config.hpp"
-#include "core/links.hpp"
 
 namespace fs = std::filesystem;
 
@@ -72,14 +71,13 @@ std::string sink_args(std::string_view sink_name, std::string_view description,
     return "sink_name=" + std::string(sink_name) + " sink_properties=\"" + pa_props(props) + "\"";
 }
 
-// Builds the whole pipewire-pulse.conf.d file: one "load-module" entry per device and,
-// with "pulse_routing" on, per loopback.
-std::string render_login_conf(const json& config, const std::optional<std::string>& personal_output)
+// Builds the whole pipewire-pulse.conf.d file: one "load-module" entry per device.
+std::string render_login_conf(const json& config)
 {
     // module name + arguments, in the order pipewire-pulse should run them: the Personal,
-    // Stream and VOD Mixes (the Stream Mix always, so OBS never loses it), each channel's sink, WaveMix Mic, then with "pulse_routing" on
-    // the loopbacks between them, once the sinks they read exist. The mic chain is the
-    // service's (core/links.hpp).
+    // Stream and VOD Mixes (the Stream Mix always, so OBS never loses it), each channel's
+    // sink, then WaveMix Mic. The loopbacks and the mic chain are the service's
+    // (core/links.hpp).
     std::vector<std::pair<std::string, std::string>> commands;
     const auto found = config.find("channels");
     const json channels = found != config.end() && found->is_array() ? *found : json::array();
@@ -99,8 +97,6 @@ std::string render_login_conf(const json& config, const std::optional<std::strin
     if (mic)
         for (auto& module : mic_device_modules())
             commands.push_back(std::move(module));
-    for (auto& link : wanted_pulse_links(config, personal_output))
-        commands.emplace_back("module-loopback", std::move(link.args));
 
     if (commands.empty())
         return std::string(kHeader) + "pulse.cmd = [ ]\n";
@@ -115,11 +111,10 @@ std::string render_login_conf(const json& config, const std::optional<std::strin
 }
 
 // Renders the login file and writes it only if its contents changed.
-void write_login_conf(const Paths& paths, const json& config, const std::optional<std::string>& personal_output)
+void write_login_conf(const Paths& paths, const json& config)
 {
-    const std::string text = render_login_conf(config, personal_output);
-    // Unchanged, it's left alone: with "pulse_routing" on this runs whenever the output
-    // device might have changed.
+    const std::string text = render_login_conf(config);
+
     if (std::ifstream in(paths.login_conf, std::ios::binary); in) {
         const std::string old((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         if (old == text)

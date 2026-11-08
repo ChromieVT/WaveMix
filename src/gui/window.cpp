@@ -1019,8 +1019,8 @@ Gtk::Grid& MixerWindow::new_form(const std::string& title, Gtk::Widget* left)
     return *grid;
 }
 
-// Opens Preferences: start at login (and minimised), the VOD Mix, the mic, where the
-// loopbacks run, the theme, and the Reset button.
+// Opens Preferences: start at login (and minimised), the VOD Mix, the mic, the fallback
+// devices, the theme, and the Reset button.
 void MixerWindow::open_preferences()
 {
     const json& settings = state_.contains("settings") ? state_["settings"] : json::object();
@@ -1062,24 +1062,6 @@ void MixerWindow::open_preferences()
         mic->signal_toggled().connect([this, mic] { call([&] { client_.set_mic_enabled(mic->get_active()); }); });
         grid.attach(*mic, 0, row++, 2);
     }
-
-    // Where the channels' loopbacks run. Off (the default), in the service: if it stops,
-    // what goes through WaveMix goes quiet. On, in the sound server, as before 0.1.7: the
-    // channels keep playing without the service, at the cost of many more open files
-    // there. The mic chain needs the service either way.
-    auto* pulse = Gtk::make_managed<Gtk::CheckButton>("Keep the channels playing if WaveMix stops");
-    pulse->set_active(settings.value("pulse_routing", false));
-    pulse->set_margin_top(8);
-    pulse->signal_toggled().connect(
-        [this, pulse] { call([&] { client_.set_setting("pulse_routing", pulse->get_active()); }); });
-    grid.attach(*pulse, 0, row++, 2);
-    auto* pulse_note = make_label(
-        "The sound server runs the channels' routing, so your apps carry on playing at their last levels. The "
-        "mic still needs WaveMix, and the sound server uses many more open files.",
-        {"wm-caption"}, 0.0F, true);
-    pulse_note->set_margin_start(24);
-    pulse_note->set_max_width_chars(52);
-    grid.attach(*pulse_note, 0, row++, 2);
 
     // Fallbacks: used while the device picked in the window isn't there (unplugged, say).
     // Without one there, the output follows the system default; the mic waits for one.
@@ -1375,13 +1357,10 @@ void MixerWindow::restart_service()
 // Asks for confirmation, then quits the service (and with it this window).
 void MixerWindow::quit_service()
 {
-    const bool pulse = state_.value("settings", json::object()).value("pulse_routing", false);
     confirm("Quit WaveMix", "Quit WaveMix?",
-            pulse ? "Your channels keep playing, at their levels of the moment, but the mic goes quiet until "
-                    "WaveMix runs again (next login, or when you reopen it). OBS keeps its devices."
-                  : "Everything that goes through WaveMix goes quiet until it runs again (next login, or when you "
-                    "reopen it): your apps stay in their channels, and OBS keeps its devices, just with no sound. "
-                    "Apps you haven't routed keep playing as usual.",
+            "Everything that goes through WaveMix goes quiet until it runs again (next login, or when you "
+            "reopen it): your apps stay in their channels, and OBS keeps its devices, just with no sound. "
+            "Apps you haven't routed keep playing as usual.",
             "Quit", [this] {
                 try {
                     client_.quit();

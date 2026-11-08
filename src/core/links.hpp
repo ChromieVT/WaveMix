@@ -18,10 +18,6 @@
 // The mic chain is hosted the same way (core/mic.hpp): a filter-chain module instead of
 // a loopback, reloaded whenever the chain changes.
 //
-// With "pulse_routing" on (core/config.hpp), the channels' loopbacks and "personal:out"
-// are pipewire-pulse's instead, module-loopbacks from the login file and loaded live
-// (PulseLink), so they keep playing without the service. The mic's stay here.
-//
 // Each keeps the names, media.name and wavemix.link tag it had as a pipewire-pulse
 // module, so saved levels and anything that looks for them carry on unchanged.
 //
@@ -68,28 +64,8 @@ std::string mic_monitor_module_args();
 // Everything the service hosts for `config`, in the order to load it: each channel's
 // loopbacks (the VOD one only for channels in the VOD), the Personal Mix's to
 // `personal_output` (none without one, or without channels or a mic), and while the mic
-// is on, its Monitor and, with a plan (an input to read), its chain. With
-// "pulse_routing" on, the mic's only.
+// is on, its Monitor and, with a plan (an input to read), its chain. 
 std::vector<LinkSpec> wanted_links(const json& config, const std::optional<std::string>& personal_output,
                                    const std::optional<MicPlan>& mic = std::nullopt);
-
-// A loopback pipewire-pulse runs, with "pulse_routing" on: its tag, its module-loopback
-// arguments, and the two sinks it connects, which have to exist before it's loaded.
-struct PulseLink {
-    std::string tag;
-    std::string args;
-    std::string from;
-    std::string to;
-};
-
-// A channel's loopback from its sink to `destination`, as a module-loopback.
-std::string pulse_link_args(std::string_view channel_id, Mix mix, std::string_view destination);
-
-// The Personal Mix to the output device, as a module-loopback.
-std::string pulse_personal_out_args(std::string_view output);
-
-// The loopbacks pipewire-pulse runs for `config`: with "pulse_routing" on, the same
-// channel loopbacks and "personal:out" wanted_links would otherwise have; off, none.
-std::vector<PulseLink> wanted_pulse_links(const json& config, const std::optional<std::string>& personal_output);
 
 }  // namespace wavemix::core

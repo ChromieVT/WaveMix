@@ -114,56 +114,16 @@ TEST(Links, WithoutAnOutputOnlyThePersonalMixsLoopbackIsMissing)
     EXPECT_TRUE(core::wanted_links(core::json::parse(R"({"mic": {"enabled": false}})"), std::string("out")).empty());
 }
 
-// With pulse_routing on, pipewire-pulse gets the channels' loopbacks and the service
-// keeps only the mic's.
-TEST(Links, WithPulseRoutingTheServiceKeepsOnlyTheMics)
-{
-    // The channels' loopbacks and the Personal Mix's to the output go to pipewire-pulse,
-    // the same ones; the mic's Monitor (and chain) stay with the service.
-    auto config = core::json::parse(R"({"settings": {"pulse_routing": true, "vod_enabled": true},
-        "channels": [{"id": "game", "label": "Game", "icon": ""}]})");
-    const std::optional<std::string> output("alsa_output.speakers");
-    EXPECT_EQ(tags(core::wanted_links(config, output)), (std::vector<std::string>{"mic:monitor"}));
-    std::vector<std::string> pulse;
-    for (const auto& link : core::wanted_pulse_links(config, output))
-        pulse.push_back(link.tag);
-    EXPECT_EQ(pulse, (std::vector<std::string>{"game:personal", "game:stream", "game:vod", "personal:out"}));
-    // Off, pipewire-pulse has none.
-    config["settings"]["pulse_routing"] = false;
-    EXPECT_TRUE(core::wanted_pulse_links(config, output).empty());
-}
-
-// pipewire-pulse's loopbacks read the same sinks and play to the same places.
-TEST(Links, PulseLoopbacksConnectTheSameSinks)
+// A "pulse_routing" setting left from an older WaveMix changes nothing: the service
+// runs every loopback, and the login file has only the devices.
+TEST(Links, AnOldPulseRoutingSettingChangesNothing)
 {
     const auto config = core::json::parse(R"({"settings": {"pulse_routing": true},
         "channels": [{"id": "game", "label": "Game", "icon": ""}]})");
-    const auto links = core::wanted_pulse_links(config, std::string("alsa_output.speakers"));
-    ASSERT_EQ(links.size(), 3U);
-    EXPECT_EQ(links[1].args.rfind("source=wavemix_game.monitor sink=wavemix_stream_mix ", 0), 0U);
-    EXPECT_NE(links[1].args.find("wavemix.link=game:stream"), std::string::npos);
-    EXPECT_EQ(links[1].from, "wavemix_game");
-    EXPECT_EQ(links[2].args.rfind("source=wavemix_personal_mix.monitor sink=alsa_output.speakers ", 0), 0U);
-    EXPECT_EQ(links[2].to, "alsa_output.speakers");
-}
 
-// With pulse_routing on, the login file has the loopbacks after the devices, never the mic's.
-TEST(LoginConf, WithPulseRoutingTheLoopbacksFollowTheDevices)
-{
-    auto config = core::json::parse(R"({"settings": {"pulse_routing": true},
-        "channels": [{"id": "game", "label": "Game", "icon": ""}]})");
-    const std::string text = core::render_login_conf(config, std::string("alsa_output.speakers"));
-    const auto loopback = text.find("module-loopback source=wavemix_game.monitor");
-    ASSERT_NE(loopback, std::string::npos);
-    EXPECT_GT(loopback, text.find("source_name=wavemix_mic "));  // the devices first
-    EXPECT_NE(text.find("module-loopback source=wavemix_personal_mix.monitor sink=alsa_output.speakers"),
-              std::string::npos);
-    EXPECT_EQ(text.find("wavemix.link=mic:monitor"), std::string::npos);  // the service's
-    // Without an output, no loopback to it; off, none at all.
-    EXPECT_EQ(core::render_login_conf(config).find("source=wavemix_personal_mix.monitor"), std::string::npos);
-    config["settings"]["pulse_routing"] = false;
-    EXPECT_EQ(core::render_login_conf(config, std::string("alsa_output.speakers")).find("module-loopback"),
-              std::string::npos);
+    EXPECT_EQ(tags(core::wanted_links(config, std::string("alsa_output.speakers"))),
+              (std::vector<std::string>{"game:personal", "game:stream", "personal:out", "mic:monitor"}));
+    EXPECT_EQ(core::render_login_conf(config).find("module-loopback"), std::string::npos);
 }
 
 // Rendering each golden scenario's final config gives exactly its login file.

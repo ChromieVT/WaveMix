@@ -92,6 +92,17 @@ TEST(Config, BrokenSettingsFallBackToDefaults)
     EXPECT_EQ(core::load_config(paths)["settings"], core::default_config()["settings"]);
 }
 
+// A "pulse_routing" setting left from an older WaveMix is dropped on loading.
+TEST(Config, TheOldPulseRoutingSettingIsDropped)
+{
+    test::TempDir dir;
+    const auto paths = core::make_paths(dir.path(), dir.path());
+    write_file(paths.config_file, R"({"version": 2, "settings": {"pulse_routing": true, "vod_enabled": true}})");
+    const auto settings = core::load_config(paths)["settings"];
+    EXPECT_FALSE(settings.contains("pulse_routing"));
+    EXPECT_EQ(settings["vod_enabled"], true);
+}
+
 // Channels are in the VOD unless they say "in_vod": false.
 TEST(Config, ChannelsAreInTheVodUnlessLeftOut)
 {

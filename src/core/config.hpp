@@ -5,8 +5,7 @@
 //
 // Both are kept as JSON documents rather than C++ structs on purpose: unknown keys
 // must survive a load/save round trip (a newer version may have written them), and
-// "settings" is passed to clients exactly as stored. The schemas are described in
-// docs/contract/files.md.
+// "settings" is passed to clients exactly as stored.
 
 #pragma once
 
@@ -28,6 +27,7 @@ json default_state();
 // Loads config.json, falling back to defaults for anything missing or broken.
 // Channels with a missing or invalid ID are dropped.
 json load_config(const Paths& paths);
+
 // Writes config.json atomically.
 void save_config(const Paths& paths, const json& config);
 
@@ -41,18 +41,13 @@ bool in_vod(const json& channel);
 // it's turned on again.
 bool vod_enabled(const json& config);
 
-// Whether pipewire-pulse runs the channels' loopbacks and the Personal Mix's to the
-// output (settings "pulse_routing", off by default), as before 0.1.7, so they keep
-// playing while the service isn't running. Off, the service runs them. The mic chain
-// and its Monitor are the service's either way.
-bool pulse_routing(const json& config);
-
 // Whether this channel should have a VOD loopback: the VOD Mix is on and the channel
 // is in it.
 bool wants_vod_link(const json& config, const json& channel);
 
 // Loads state.json. A "levels" value that isn't an object is reset to {}.
 json load_state(const Paths& paths);
+
 // Writes state.json atomically.
 void save_state(const Paths& paths, const json& state);
 

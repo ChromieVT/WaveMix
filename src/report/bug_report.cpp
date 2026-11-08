@@ -227,9 +227,9 @@ void pipewire_and_graph_sections(std::ostream& out, const core::json& config)
 
     out << "## Audio graph (WaveMix's part)\n\n";
     out << "VOD mix: " << (core::vod_enabled(config) ? "on" : "off") << "\n";
-    out << "Channels' loopbacks: " << (core::pulse_routing(config) ? "in pipewire-pulse" : "in the service") << "\n";
     out << "Default output: " << (g.default_sink.empty() ? "(none)" : g.default_sink) << "\n";
     out << "Outputs:\n";
+
     for (const pw::Node* sink : g.hardware_sinks())
         out << "  " << sink->name() << "  \"" << sink->description() << "\"\n";
 
